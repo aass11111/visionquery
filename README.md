@@ -17,6 +17,12 @@ The **frame-step slider** sets how often the models look at the video (every N f
 higher is faster. Recoloring still renders every frame; between SAM 2 passes the mask is moved with the tracked box,
 so the output never flickers. Only the models a stage needs are kept on the GPU.
 
+## Try it on Google Colab (free GPU)
+
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aass11111/visionquery/blob/main/colab/VisionQuery.ipynb)
+
+Pick **Runtime → Change runtime type → T4 GPU**, run the cells in order, and open the link the last setup cell prints.
+
 ## Run with Docker
 
 ```bash

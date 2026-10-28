@@ -1,5 +1,7 @@
 import type { Health, Job, PreviewRequest, RecolorRequest, SearchRequest, VideoMeta } from '../types';
 
+const BACKEND_DOWN = 'Cannot reach the backend on port 8000 — is it running?';
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, init);
   if (!res.ok) {
@@ -40,9 +42,9 @@ export const api = {
           /* ignore */
         }
         if (xhr.status >= 200 && xhr.status < 300) resolve(body as VideoMeta);
-        else reject(new Error(body.detail ?? `Upload failed (${xhr.status})`));
+        else reject(new Error(body.detail ?? (xhr.status >= 500 ? BACKEND_DOWN : `Upload failed (${xhr.status})`)));
       };
-      xhr.onerror = () => reject(new Error('Network error during upload'));
+      xhr.onerror = () => reject(new Error(BACKEND_DOWN));
       xhr.send(form);
     });
   },

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import shutil
 import tempfile
 from pathlib import Path
@@ -7,6 +8,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, Response, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from . import pipeline, video
 from .config import settings
@@ -132,3 +134,10 @@ def output(job_id: str) -> FileResponse:
         raise HTTPException(404, "Output not found")
     return FileResponse(path, media_type="video/mp4", filename=f"visionquery-{job_id}.mp4",
                         content_disposition_type="inline")
+
+
+# Single-URL deployments (Colab, demos): serve the built React app from the same server.
+# Mounted last so every /api route above wins.
+_ui = os.getenv("FRONTEND_DIST")
+if _ui and Path(_ui).is_dir():
+    app.mount("/", StaticFiles(directory=_ui, html=True), name="ui")

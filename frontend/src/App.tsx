@@ -12,9 +12,30 @@ import { UploadZone } from './components/UploadZone';
 import { VideoPlayer } from './components/VideoPlayer';
 import { DEMO, demoHealth, demoSearch, demoSuggestions, demoVideo } from './demo';
 import { cn } from './lib/format';
-import type { Health, Job, RecolorResult, SearchResult, Selection, Suggestion, VideoMeta } from './types';
+import { SettingsPanel } from './components/SettingsPanel';
+import {
+  DEFAULT_SETTINGS,
+  type AppSettings,
+  type Health,
+  type Job,
+  type RecolorResult,
+  type SearchResult,
+  type Selection,
+  type Suggestion,
+  type VideoMeta,
+} from './types';
 
 type View = 'original' | 'result';
+
+const SETTINGS_KEY = 'vq-settings';
+
+function loadSettings(): AppSettings {
+  try {
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') };
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
 
 export default function App() {
   const [health, setHealth] = useState<Health | null>(null);
@@ -22,6 +43,8 @@ export default function App() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  const [settings, setSettings] = useState<AppSettings>(loadSettings);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [query, setQuery] = useState('');
@@ -59,6 +82,14 @@ export default function App() {
   }, []);
 
   useEffect(() => () => unsubscribers.current.forEach((u) => u()), []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    } catch {
+      /* storage unavailable: settings last for this visit only */
+    }
+  }, [settings]);
 
   useEffect(() => {
     if (!DEMO) return;
@@ -141,8 +172,9 @@ export default function App() {
         video_id: video.video_id,
         query: text,
         frame_step: frameStep,
-        conf: 0.15,
+        conf: settings.conf,
         use_clip: useClip,
+        yolo_half: settings.yoloHalf,
       });
       follow(job_id, `Searching “${text}”`, (job) => {
         setSearchJob(job);
@@ -194,6 +226,7 @@ export default function App() {
         color,
         strength,
         frame_step: frameStep,
+        yolo_half: settings.yoloHalf,
       });
       follow(job_id, 'Recoloring video', (job) => {
         setRecolorJob(job);
@@ -213,7 +246,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <Header health={health} video={video} onReset={reset} />
+      <Header health={health} video={video} onReset={reset} onOpenSettings={() => setSettingsOpen(true)} />
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        settings={settings}
+        onChange={setSettings}
+        device={health?.device ?? null}
+      />
 
       <main className="mx-auto max-w-[1600px] px-6 py-6">
         {!video ? (

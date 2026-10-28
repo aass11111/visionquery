@@ -84,7 +84,16 @@ export interface SearchRequest {
   frame_step: number;
   conf: number;
   use_clip: boolean;
+  yolo_half: boolean;
 }
+
+/** User-tunable options from the settings panel (kept in localStorage). */
+export interface AppSettings {
+  yoloHalf: boolean; // YOLO-World in FP16 instead of FP32
+  conf: number; // detection confidence threshold
+}
+
+export const DEFAULT_SETTINGS: AppSettings = { yoloHalf: false, conf: 0.15 };
 
 export interface RecolorRequest {
   video_id: string;
@@ -94,6 +103,7 @@ export interface RecolorRequest {
   color: string; // #RRGGBB
   strength: number; // 0..1
   frame_step: number;
+  yolo_half: boolean;
 }
 
 export interface PreviewRequest {

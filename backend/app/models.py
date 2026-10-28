@@ -19,7 +19,6 @@ def pick_device() -> str:
 
 
 DEVICE = pick_device()
-HALF = DEVICE == "cuda"
 
 
 class ClipScorer:

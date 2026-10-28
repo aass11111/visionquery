@@ -4,11 +4,12 @@ from collections import defaultdict
 
 import cv2
 import numpy as np
+import torch
 
 from . import video
 from .config import settings
 from .jobs import Job
-from .models import DEVICE, HALF, registry
+from .models import DEVICE, registry
 from .recolor import clip_to_box, iou, recolor_frame, warp_mask
 from .schemas import (Detection, FrameHit, PreviewRequest, RecolorRequest, RecolorResult, SearchRequest,
                       SearchResult, Suggestion, Suggestions)
@@ -17,19 +18,32 @@ from .suggest import VOCAB, color_name, summarize
 BoxT = tuple[float, float, float, float]
 
 
-def _set_classes(yolo, classes: list[str]) -> None:
+def _set_classes(yolo, classes: list[str], half: bool = False) -> bool:
+    """Point YOLO-World at a vocabulary in the requested precision; returns the effective `half`.
+
+    The text embeddings set_classes() computes are float32 and are not converted when ultralytics
+    turns the weights to fp16, so we cast them ourselves to match (FP16 mode) or keep the whole
+    model in float32 (FP32 mode, the default and the safest)."""
+    half = half and DEVICE == "cuda"
+    if getattr(yolo, "_vq_half", None) != half:
+        # Precision changed: drop the predictor so ultralytics re-wraps the weights in the new dtype.
+        yolo.predictor = None
+        yolo.model.float()
+        yolo._vq_half = half
+        yolo._vq_classes = None
     key = tuple(classes)
     if getattr(yolo, "_vq_classes", None) != key:
-        yolo.model.to(DEVICE)  # a previous predict() may have left a fused copy elsewhere
+        yolo.model.to(DEVICE)
         yolo.set_classes(list(classes))
-        txt = getattr(yolo.model, "txt_feats", None)
-        if txt is not None:
-            yolo.model.txt_feats = txt.to(DEVICE)
         yolo._vq_classes = key
+    txt = getattr(yolo.model, "txt_feats", None)
+    if txt is not None:
+        yolo.model.txt_feats = txt.to(DEVICE, dtype=torch.float16 if half else torch.float32)
+    return half
 
 
-def _set_query(yolo, query: str) -> None:
-    _set_classes(yolo, [query])
+def _set_query(yolo, query: str, half: bool = False) -> bool:
+    return _set_classes(yolo, [query], half)
 
 
 def _boxes(result) -> list[tuple[BoxT, float, int | None]]:
@@ -60,7 +74,7 @@ def run_search(job: Job, req: SearchRequest) -> SearchResult:
     job.update(message="Loading YOLO-World" + (" + CLIP" if req.use_clip else ""))
     models = registry.use("yolo", "clip" if req.use_clip else "")
     yolo, clip = models["yolo"], models.get("clip")
-    _set_query(yolo, query)
+    half = _set_query(yolo, query, req.yolo_half)
 
     step = req.frame_step
     total = math.ceil(meta.frame_count / step)
@@ -73,7 +87,7 @@ def run_search(job: Job, req: SearchRequest) -> SearchResult:
         nonlocal scanned
         if not batch:
             return
-        results = yolo.predict(batch, conf=req.conf, imgsz=settings.yolo_imgsz, device=DEVICE, half=HALF,
+        results = yolo.predict(batch, conf=req.conf, imgsz=settings.yolo_imgsz, device=DEVICE, half=half,
                                verbose=False)
         for idx, frame, res in zip(batch_idx, batch, results):
             dets = _boxes(res)
@@ -132,7 +146,7 @@ def suggestions(video_id: str, samples: int = 12) -> Suggestions:
 
     meta = video.get_meta(video_id)
     yolo = registry.use("yolo")["yolo"]
-    _set_classes(yolo, VOCAB)
+    half = _set_classes(yolo, VOCAB)  # FP32: runs once per video, accuracy over speed
 
     frames, idxs = [], []
     for i in np.linspace(0, meta.frame_count - 1, min(samples, meta.frame_count)).astype(int):
@@ -144,7 +158,7 @@ def suggestions(video_id: str, samples: int = 12) -> Suggestions:
 
     dets: list[tuple[int, str, str | None]] = []
     if frames:
-        results = yolo.predict(frames, conf=0.3, imgsz=settings.yolo_imgsz, device=DEVICE, half=HALF, verbose=False)
+        results = yolo.predict(frames, conf=0.3, imgsz=settings.yolo_imgsz, device=DEVICE, half=half, verbose=False)
         for idx, frame, res in zip(idxs, frames, results):
             if res.boxes is None:
                 continue
@@ -229,7 +243,7 @@ def run_recolor(job: Job, req: RecolorRequest) -> RecolorResult:
     job.update(message="Loading YOLO-World + SAM 2")
     models = registry.use("yolo_track", "sam")
     yolo, sam = models["yolo_track"], models["sam"]
-    _set_query(yolo, query)
+    half = _set_query(yolo, query, req.yolo_half)
 
     # Pass 1: track every frame (YOLO-World is cheap); keep only boxes.
     tracks: dict[int, list[tuple[BoxT, int | None]]] = defaultdict(list)
@@ -241,7 +255,7 @@ def run_recolor(job: Job, req: RecolorRequest) -> RecolorResult:
             if not ok:
                 break
             res = yolo.track(frame, persist=idx > 0, tracker="bytetrack.yaml", conf=0.1,
-                             imgsz=settings.yolo_imgsz, device=DEVICE, half=HALF, verbose=False)
+                             imgsz=settings.yolo_imgsz, device=DEVICE, half=half, verbose=False)
             tracks[idx] = [(b, t) for b, _, t in _boxes(res[0])]
             idx += 1
             if idx % 10 == 0:

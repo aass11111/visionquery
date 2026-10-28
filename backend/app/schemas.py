@@ -82,6 +82,7 @@ class SearchRequest(BaseModel):
     frame_step: int = Field(5, ge=1, le=120)
     conf: float = Field(0.15, ge=0.01, le=0.95)
     use_clip: bool = True
+    yolo_half: bool = False  # run YOLO-World in FP16 (faster, CUDA only)
 
 
 class PreviewRequest(BaseModel):
@@ -100,6 +101,7 @@ class PreviewRequest(BaseModel):
 class RecolorRequest(PreviewRequest):
     query: str = Field(min_length=1, max_length=200)
     frame_step: int = Field(5, ge=1, le=120)
+    yolo_half: bool = False
 
 
 class JobRef(BaseModel):

@@ -1,4 +1,4 @@
-import { Film, RotateCcw, ScanSearch, Zap } from 'lucide-react';
+import { Film, RotateCcw, ScanSearch, Settings2, Zap } from 'lucide-react';
 import { formatTime } from '../lib/format';
 import type { Health, VideoMeta } from '../types';
 
@@ -6,9 +6,10 @@ interface HeaderProps {
   health: Health | null;
   video: VideoMeta | null;
   onReset: () => void;
+  onOpenSettings: () => void;
 }
 
-export function Header({ health, video, onReset }: HeaderProps) {
+export function Header({ health, video, onReset, onOpenSettings }: HeaderProps) {
   const models = health?.loaded_models.length ? `Loaded: ${health.loaded_models.join(', ')}` : 'No models loaded';
 
   return (
@@ -54,6 +55,10 @@ export function Header({ health, video, onReset }: HeaderProps) {
               <span className="text-amber-300">CPU mode</span>
             </span>
           )}
+
+          <button className="btn-icon h-8 w-8" onClick={onOpenSettings} aria-label="Settings" title="Settings">
+            <Settings2 size={16} strokeWidth={1.75} />
+          </button>
 
           {video && (
             <button className="btn-ghost h-8 whitespace-nowrap px-3 text-xs" onClick={onReset}>

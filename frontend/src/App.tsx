@@ -10,6 +10,7 @@ import { SearchBar } from './components/SearchBar';
 import { Timeline } from './components/Timeline';
 import { UploadZone } from './components/UploadZone';
 import { VideoPlayer } from './components/VideoPlayer';
+import { DEMO, demoHealth, demoSearch, demoVideo } from './demo';
 import { cn } from './lib/format';
 import type { Health, Job, RecolorResult, SearchResult, Selection, VideoMeta } from './types';
 
@@ -45,6 +46,7 @@ export default function App() {
   // GPU / model status in the header.
   useEffect(() => {
     let alive = true;
+    if (DEMO) return;
     const tick = () => api.health().then((h) => alive && setHealth(h)).catch(() => undefined);
     tick();
     const id = window.setInterval(tick, 8000);
@@ -55,6 +57,14 @@ export default function App() {
   }, []);
 
   useEffect(() => () => unsubscribers.current.forEach((u) => u()), []);
+
+  useEffect(() => {
+    if (!DEMO) return;
+    setHealth(demoHealth);
+    setVideo(demoVideo);
+    setQuery('red car');
+    setSearch(demoSearch());
+  }, []);
 
   const replacePreview = useCallback((url: string | null) => {
     setPreviewUrl((old) => {

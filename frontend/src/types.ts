@@ -45,6 +45,20 @@ export interface SearchResult {
   hits: FrameHit[]; // chronological
 }
 
+/** What the backend found in a quick scan of the video, used for search suggestions. */
+export interface Suggestion {
+  label: string; // "car" or "red car"
+  count: number;
+  frames: number;
+  kind: 'object' | 'color';
+}
+
+export interface Suggestions {
+  video_id: string;
+  frames_sampled: number;
+  items: Suggestion[];
+}
+
 export interface RecolorResult {
   output_url: string;
   frames_written: number;

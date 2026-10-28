@@ -14,7 +14,7 @@ from . import pipeline, video
 from .config import settings
 from .jobs import gpu_lock, jobs
 from .models import DEVICE, registry, vram
-from .schemas import Health, JobRef, PreviewRequest, RecolorRequest, SearchRequest, VideoMeta
+from .schemas import Health, JobRef, PreviewRequest, RecolorRequest, SearchRequest, Suggestions, VideoMeta
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -71,6 +71,17 @@ def frame(video_id: str, index: int) -> FileResponse:
     except IndexError:
         raise HTTPException(404, "Frame not readable")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.get("/api/videos/{video_id}/suggestions", response_model=Suggestions)
+def get_suggestions(video_id: str) -> Suggestions:
+    _meta_or_404(video_id)
+    if not gpu_lock.acquire(timeout=2):
+        raise HTTPException(409, "The GPU is busy with another job — try again when it finishes")
+    try:
+        return pipeline.suggestions(video_id)
+    finally:
+        gpu_lock.release()
 
 
 @app.post("/api/search", response_model=JobRef)

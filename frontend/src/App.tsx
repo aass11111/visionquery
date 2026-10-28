@@ -10,9 +10,9 @@ import { SearchBar } from './components/SearchBar';
 import { Timeline } from './components/Timeline';
 import { UploadZone } from './components/UploadZone';
 import { VideoPlayer } from './components/VideoPlayer';
-import { DEMO, demoHealth, demoSearch, demoVideo } from './demo';
+import { DEMO, demoHealth, demoSearch, demoSuggestions, demoVideo } from './demo';
 import { cn } from './lib/format';
-import type { Health, Job, RecolorResult, SearchResult, Selection, VideoMeta } from './types';
+import type { Health, Job, RecolorResult, SearchResult, Selection, Suggestion, VideoMeta } from './types';
 
 type View = 'original' | 'result';
 
@@ -22,6 +22,8 @@ export default function App() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [useClip, setUseClip] = useState(true);
   const [frameStep, setFrameStep] = useState(5);
@@ -62,9 +64,25 @@ export default function App() {
     if (!DEMO) return;
     setHealth(demoHealth);
     setVideo(demoVideo);
-    setQuery('red car');
+    setSuggestions(demoSuggestions);
     setSearch(demoSearch());
   }, []);
+
+  // What is in this video, for the search chips and autocomplete.
+  const videoId = video?.video_id;
+  useEffect(() => {
+    if (!videoId || DEMO) return;
+    let alive = true;
+    setSuggestionsLoading(true);
+    api
+      .suggestions(videoId)
+      .then((s) => alive && setSuggestions(s.items))
+      .catch(() => alive && setSuggestions(null))
+      .finally(() => alive && setSuggestionsLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [videoId]);
 
   const replacePreview = useCallback((url: string | null) => {
     setPreviewUrl((old) => {
@@ -79,6 +97,7 @@ export default function App() {
     unsubscribers.current.forEach((u) => u());
     unsubscribers.current = [];
     setVideo(null);
+    setSuggestions(null);
     setSearch(null);
     setSearchJob(null);
     setSelection(null);
@@ -111,20 +130,21 @@ export default function App() {
     unsubscribers.current.push(unsub);
   };
 
-  const runSearch = async () => {
-    if (!video || !query.trim()) return;
+  const runSearch = async (q?: string) => {
+    const text = (q ?? query).trim();
+    if (!video || !text) return;
     setNotice(null);
     setSelection(null);
     replacePreview(null);
     try {
       const { job_id } = await api.search({
         video_id: video.video_id,
-        query: query.trim(),
+        query: text,
         frame_step: frameStep,
         conf: 0.15,
         use_clip: useClip,
       });
-      follow(job_id, `Searching “${query.trim()}”`, (job) => {
+      follow(job_id, `Searching “${text}”`, (job) => {
         setSearchJob(job);
         if (job.status === 'done') setSearch(job.result as SearchResult);
       });
@@ -222,6 +242,8 @@ export default function App() {
                   disabled={applying}
                   useClip={useClip}
                   onUseClipChange={setUseClip}
+                  suggestions={suggestions}
+                  suggestionsLoading={suggestionsLoading}
                 />
 
                 {outputUrl && (

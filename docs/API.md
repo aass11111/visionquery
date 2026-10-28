@@ -10,6 +10,7 @@ Long work (search, recolor) runs as a **job** on a single GPU worker; progress s
 | GET | `/api/videos/{video_id}` | | `VideoMeta` |
 | GET | `/api/videos/{video_id}/stream` | | the video file (HTTP range supported) |
 | GET | `/api/videos/{video_id}/frames/{index}.jpg` | | full frame JPEG (cached) |
+| GET | `/api/videos/{video_id}/suggestions` | | `Suggestions`: objects (and their colours) found in 12 sampled frames; cached |
 | POST | `/api/search` | `SearchRequest` | `{ "job_id": str }` |
 | POST | `/api/preview` | `PreviewRequest` | `image/jpeg`, one recoloured frame |
 | POST | `/api/recolor` | `RecolorRequest` | `{ "job_id": str }` |

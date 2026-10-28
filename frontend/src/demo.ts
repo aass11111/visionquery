@@ -1,5 +1,5 @@
 // Dev-only fake data so the UI can be reviewed without the GPU backend: open http://localhost:5173/?demo
-import type { FrameHit, Health, SearchResult, VideoMeta } from './types';
+import type { FrameHit, Health, SearchResult, Suggestion, VideoMeta } from './types';
 
 export const DEMO = import.meta.env.DEV && new URLSearchParams(location.search).has('demo');
 
@@ -21,6 +21,16 @@ export const demoVideo: VideoMeta = {
   height: 1080,
   duration: 90,
 };
+
+export const demoSuggestions: Suggestion[] = [
+  { label: 'car', count: 31, frames: 12, kind: 'object' },
+  { label: 'white car', count: 11, frames: 0, kind: 'color' },
+  { label: 'red car', count: 6, frames: 0, kind: 'color' },
+  { label: 'truck', count: 5, frames: 4, kind: 'object' },
+  { label: 'black truck', count: 3, frames: 0, kind: 'color' },
+  { label: 'person', count: 4, frames: 3, kind: 'object' },
+  { label: 'traffic light', count: 3, frames: 3, kind: 'object' },
+];
 
 function frameImage(seed: number, x: number): string {
   const c = document.createElement('canvas');

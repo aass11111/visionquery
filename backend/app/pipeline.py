@@ -11,19 +11,25 @@ from .jobs import Job
 from .models import DEVICE, HALF, registry
 from .recolor import clip_to_box, iou, recolor_frame, warp_mask
 from .schemas import (Detection, FrameHit, PreviewRequest, RecolorRequest, RecolorResult, SearchRequest,
-                      SearchResult)
+                      SearchResult, Suggestion, Suggestions)
+from .suggest import VOCAB, color_name, summarize
 
 BoxT = tuple[float, float, float, float]
 
 
-def _set_query(yolo, query: str) -> None:
-    if getattr(yolo, "_vq_query", None) != query:
+def _set_classes(yolo, classes: list[str]) -> None:
+    key = tuple(classes)
+    if getattr(yolo, "_vq_classes", None) != key:
         yolo.model.to(DEVICE)  # a previous predict() may have left a fused copy elsewhere
-        yolo.set_classes([query])
+        yolo.set_classes(list(classes))
         txt = getattr(yolo.model, "txt_feats", None)
         if txt is not None:
             yolo.model.txt_feats = txt.to(DEVICE)
-        yolo._vq_query = query
+        yolo._vq_classes = key
+
+
+def _set_query(yolo, query: str) -> None:
+    _set_classes(yolo, [query])
 
 
 def _boxes(result) -> list[tuple[BoxT, float, int | None]]:
@@ -113,6 +119,43 @@ def run_search(job: Job, req: SearchRequest) -> SearchResult:
         cap.release()
 
     return SearchResult(query=query, frame_step=step, frames_scanned=scanned, hits=hits)
+
+
+# ---------------------------------------------------------------- suggestions
+
+def suggestions(video_id: str, samples: int = 12) -> Suggestions:
+    """What is actually in the video: YOLO-World over a broad vocabulary on a few evenly spaced frames,
+    plus the dominant colour of each object. Cached per video."""
+    cache = video.video_dir(video_id) / "suggestions.json"
+    if cache.exists():
+        return Suggestions.model_validate_json(cache.read_text())
+
+    meta = video.get_meta(video_id)
+    yolo = registry.use("yolo")["yolo"]
+    _set_classes(yolo, VOCAB)
+
+    frames, idxs = [], []
+    for i in np.linspace(0, meta.frame_count - 1, min(samples, meta.frame_count)).astype(int):
+        try:
+            frames.append(video.read_frame(video_id, int(i)))
+            idxs.append(int(i))
+        except IndexError:
+            continue
+
+    dets: list[tuple[int, str, str | None]] = []
+    if frames:
+        results = yolo.predict(frames, conf=0.3, imgsz=settings.yolo_imgsz, device=DEVICE, half=HALF, verbose=False)
+        for idx, frame, res in zip(idxs, frames, results):
+            if res.boxes is None:
+                continue
+            for box, cls in zip(res.boxes.xyxy.cpu().numpy(), res.boxes.cls.cpu().numpy()):
+                x1, y1, x2, y2 = map(int, box)
+                dets.append((idx, VOCAB[int(cls)], color_name(frame[max(0, y1):y2, max(0, x1):x2])))
+
+    out = Suggestions(video_id=video_id, frames_sampled=len(frames),
+                      items=[Suggestion(**s) for s in summarize(dets, len(frames))])
+    cache.write_text(out.model_dump_json())
+    return out
 
 
 # ---------------------------------------------------------------- segmentation

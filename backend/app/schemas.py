@@ -48,6 +48,19 @@ class SearchResult(BaseModel):
     hits: list[FrameHit]
 
 
+class Suggestion(BaseModel):
+    label: str
+    count: int  # detections across the sampled frames
+    frames: int  # sampled frames containing it (0 for colour variants)
+    kind: Literal["object", "color"]
+
+
+class Suggestions(BaseModel):
+    video_id: str
+    frames_sampled: int
+    items: list[Suggestion]
+
+
 class RecolorResult(BaseModel):
     output_url: str
     frames_written: int

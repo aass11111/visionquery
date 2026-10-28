@@ -62,9 +62,15 @@ def _load(name: str) -> Any:
     log.info("loading %s on %s", name, DEVICE)
     if name in ("yolo", "yolo_track"):
         # Separate instances so ByteTrack callbacks from recolor never leak into search predictions.
-        return YOLOWorld(str(settings.model_dir / settings.yolo_model))
+        # Move to the GPU before set_classes(): the text embeddings it computes are created on the
+        # model's current device, and stay there when predict() later moves the weights.
+        m = YOLOWorld(str(settings.model_dir / settings.yolo_model))
+        m.to(DEVICE)
+        return m
     if name == "sam":
-        return SAM(str(settings.model_dir / settings.sam_model))
+        m = SAM(str(settings.model_dir / settings.sam_model))
+        m.to(DEVICE)
+        return m
     if name == "clip":
         return ClipScorer()
     raise KeyError(name)

@@ -18,7 +18,11 @@ BoxT = tuple[float, float, float, float]
 
 def _set_query(yolo, query: str) -> None:
     if getattr(yolo, "_vq_query", None) != query:
+        yolo.model.to(DEVICE)  # a previous predict() may have left a fused copy elsewhere
         yolo.set_classes([query])
+        txt = getattr(yolo.model, "txt_feats", None)
+        if txt is not None:
+            yolo.model.txt_feats = txt.to(DEVICE)
         yolo._vq_query = query
 
 

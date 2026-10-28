@@ -1,0 +1,13 @@
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.models/
+.data/
+*.pt
+*.mp4
+*.mov
+.env
+.DS_Store

@@ -1,0 +1,97 @@
+// Shared contract between the React app and the FastAPI backend (see docs/API.md).
+
+/** [x1, y1, x2, y2] in source-video pixel coordinates. */
+export type Box = [number, number, number, number];
+
+export interface VideoMeta {
+  video_id: string;
+  filename: string;
+  fps: number;
+  frame_count: number;
+  width: number;
+  height: number;
+  duration: number; // seconds
+}
+
+export interface Health {
+  status: 'ok';
+  device: 'cuda' | 'cpu';
+  gpu_name: string | null;
+  vram_total_gb: number | null;
+  vram_used_gb: number | null;
+  loaded_models: string[];
+}
+
+export interface Detection {
+  box: Box;
+  score: number; // final score 0..1 (detector x CLIP when enabled)
+  det_score: number; // raw YOLO-World confidence
+  clip_score: number | null; // CLIP image-text similarity 0..1, null when CLIP is off
+  label: string;
+}
+
+export interface FrameHit {
+  frame_index: number;
+  time: number; // seconds
+  thumbnail_url: string; // full frame JPEG, same aspect as the video
+  detections: Detection[]; // sorted by score, best first
+  best_score: number;
+}
+
+export interface SearchResult {
+  query: string;
+  frame_step: number;
+  frames_scanned: number;
+  hits: FrameHit[]; // chronological
+}
+
+export interface RecolorResult {
+  output_url: string;
+  frames_written: number;
+  frames_segmented: number;
+}
+
+export type JobKind = 'search' | 'recolor';
+export type JobStatus = 'queued' | 'running' | 'done' | 'error';
+
+export interface Job<R = SearchResult | RecolorResult> {
+  job_id: string;
+  kind: JobKind;
+  status: JobStatus;
+  progress: number; // 0..1
+  message: string;
+  result: R | null;
+  error: string | null;
+}
+
+export interface SearchRequest {
+  video_id: string;
+  query: string;
+  frame_step: number;
+  conf: number;
+  use_clip: boolean;
+}
+
+export interface RecolorRequest {
+  video_id: string;
+  query: string;
+  frame_index: number;
+  box: Box;
+  color: string; // #RRGGBB
+  strength: number; // 0..1
+  frame_step: number;
+}
+
+export interface PreviewRequest {
+  video_id: string;
+  frame_index: number;
+  box: Box;
+  color: string;
+  strength: number;
+}
+
+/** The object the user picked: one detection inside one frame hit. */
+export interface Selection {
+  hit: FrameHit;
+  detection: Detection;
+}

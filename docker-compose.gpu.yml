@@ -1,0 +1,14 @@
+# Usage: docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+# Requires NVIDIA Container Toolkit to be installed on the host
+
+services:
+  backend:
+    environment:
+      - DEVICE=cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

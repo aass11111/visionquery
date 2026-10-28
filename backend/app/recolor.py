@@ -48,8 +48,10 @@ def recolor_frame(frame: np.ndarray, mask: np.ndarray, hex_color: str, strength:
     highlight_keep = np.clip((248.0 - L) / 28.0, 0.0, 1.0)
     a = (alpha * highlight_keep)[..., None]
     new = np.stack([new_l, new_a, new_b], axis=-1)
-    out = lab * (1 - a) + new * a
-    return cv2.cvtColor(np.clip(out, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR)
+    painted = cv2.cvtColor(np.clip(new, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR).astype(np.float32)
+    # Blend in BGR so pixels outside the mask are bit-identical (a LAB round trip would shift them by ±1).
+    out = frame.astype(np.float32) * (1 - a) + painted * a
+    return np.clip(out + 0.5, 0, 255).astype(np.uint8)
 
 
 def warp_mask(mask: np.ndarray, src_box, dst_box) -> np.ndarray:

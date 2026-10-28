@@ -1,0 +1,36 @@
+# CPU by default; for an NVIDIA GPU run `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build`
+
+name: visionquery
+
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      MODEL_DIR: /models
+      DATA_DIR: /data
+      YOLO_MODEL: yolov8s-worldv2.pt
+      SAM_MODEL: sam2.1_t.pt
+      CLIP_MODEL: ViT-B/32
+    volumes:
+      - models:/models
+      - data:/data
+    expose:
+      - 8000
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_started
+
+volumes:
+  models:
+  data:

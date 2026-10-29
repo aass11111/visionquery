@@ -32,13 +32,58 @@ $width = 40
 
 $wheels = Join-Path $env:TEMP 'vq-wheels'
 $wheelTotal = 2400MB  # torch (~2394 MB) + torchvision (~6 MB)
+$packagesTotal = 140MB  # PyTorch's small dependencies + backend\requirements.txt
+$projectDir = Split-Path -Parent $Log
+$fetchLog = Join-Path $projectDir 'torch-download.log'
+$attemptsLog = Join-Path $projectDir 'setup-attempts.log'
+$pkgStart = $null
+$staleAt = $null
+$venv = if ($env:VQ_VENV) { $env:VQ_VENV } else { Join-Path $HOME '.venvs\visionquery' }
+$sitePackages = Join-Path $venv 'Lib\site-packages'
+$venvTotal = 5.0GB
+$lastSize = $null
+$lastSizeAt = Get-Date
 
 while ($true) {
     $now = Get-Date
-    # While scripts\fetch-torch-wheels.sh runs, measure the PyTorch files themselves: exact, and
-    # unaffected by other downloads on this PC. Otherwise fall back to all bytes received.
+    $fetchDone = (Test-Path $fetchLog) -and ((Get-Content $fetchLog -Raw -ErrorAction SilentlyContinue) -match 'WHEELS_DONE')
+    # Phase 1, PyTorch download: measure the wheel files themselves (exact, unaffected by other
+    # downloads on this PC). Phase 2, pip packages: bytes received since that phase started.
     $wheelFiles = Get-ChildItem $wheels -File -ErrorAction SilentlyContinue
-    if ($wheelFiles) {
+    # scripts\fetch_wheels.py (parallel PyPI download) reports its own exact progress.
+    $pypiFile = Join-Path $projectDir 'fetch-wheels.json'
+    $pypi = $null
+    if (Test-Path $pypiFile) {
+        try { $pypi = Get-Content $pypiFile -Raw | ConvertFrom-Json } catch { $pypi = $null }
+    }
+    $logNow = if (Test-Path $Log) { Get-Content $Log -Raw -ErrorAction SilentlyContinue } else { '' }
+    $lastStep = [regex]::Matches("$logNow", '(?m)^=== (.+?)\s+\[')
+    $lastStep = if ($lastStep.Count) { $lastStep[$lastStep.Count - 1].Groups[1].Value } else { '' }
+    $pypiActive = $pypi -and -not $pypi.finished -and $pypi.total -gt 0
+    $installing = -not $pypiActive -and $lastStep -match '^Installing (PyTorch|backend|\d+ pre-downloaded)' -and "$logNow" -notmatch 'SETUP_DONE'
+    if ($installing) {
+        # Install phase: the environment grows to ~5 GB (PyTorch alone unpacks to ~4.3 GB).
+        # Sizing thousands of files is slow, so refresh it every 3 seconds.
+        $total = $venvTotal
+        if ($null -eq $lastSize -or ($now - $lastSizeAt).TotalSeconds -ge 3) {
+            $lastSize = [double]((Get-ChildItem $sitePackages -Recurse -File -Force -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum)
+            $lastSizeAt = $now
+        }
+        $got = [math]::Min($total * 0.99, $lastSize)
+    } elseif ($pypi -and -not $pypi.finished -and $pypi.total -gt 0) {
+        $total = [double]$pypi.total
+        $got = [double]$pypi.got
+        # If the downloader stopped refreshing the file, keep counting with the network bytes.
+        if (((Get-Date) - (Get-Item $pypiFile).LastWriteTime).TotalSeconds -gt 5) {
+            if ($null -eq $staleAt) { $staleAt = Get-ReceivedBytes }
+            $got += (Get-ReceivedBytes) - $staleAt
+        } else { $staleAt = $null }
+        $got = [math]::Min($total, $got)
+    } elseif ($fetchDone) {
+        if ($null -eq $pkgStart) { $pkgStart = Get-ReceivedBytes; $samples.Clear() }
+        $total = $packagesTotal
+        $got = [math]::Min($total, [math]::Max(0, (Get-ReceivedBytes) - $pkgStart))
+    } elseif ($wheelFiles) {
         $total = $wheelTotal
         # Directory listings report stale sizes for files still open for writing on NTFS, so open
         # each file (shared) and ask the handle for its real length.
@@ -64,13 +109,24 @@ while ($true) {
     $text = if (Test-Path $Log) { Get-Content $Log -Raw -ErrorAction SilentlyContinue } else { '' }
     $steps = [regex]::Matches("$text", '(?m)^=== (.+?)\s+\[')
     $step = if ($steps.Count) { $steps[$steps.Count - 1].Groups[1].Value } else { 'Waiting for setup to start' }
-    $fetchLog = Join-Path (Split-Path -Parent $Log) 'torch-download.log'
-    if ($wheelFiles -and -not ("$text" -match 'Installing PyTorch')) {
+    $attempts = if (Test-Path $attemptsLog) { Get-Content $attemptsLog -Raw -ErrorAction SilentlyContinue } else { '' }
+    if ($installing) {
+        $step = "$lastStep (unpacking into the environment)"
+    } elseif ($pypi -and -not $pypi.finished -and $pypi.total -gt 0) {
+        $step = "Downloading $($pypi.files) big Python packages over 12 connections"
+    } elseif ($fetchDone) {
+        # Show the package pip is fetching right now, e.g. "sympy (6.2 MB)".
+        $dl = [regex]::Matches("$text", '(?m)^\s*Downloading (\S+?)(?:-\d[^\s]*)?\.(?:whl|tar\.gz)\s*(\([^)]*\))?')
+        $real = @($dl | Where-Object { $_.Groups[2].Success })
+        if ($real.Count) { $step = "pip: $($real[-1].Groups[1].Value) $($real[-1].Groups[2].Value)" }
+        $tries = [regex]::Matches("$attempts", 'setup attempt (\d+)')
+        if ($tries.Count -gt 1) { $step += "  (attempt $($tries[-1].Groups[1].Value))" }
+    } elseif ($wheelFiles -and -not ("$text" -match 'Installing PyTorch')) {
         $step = 'Downloading PyTorch in 8 parallel parts'
-        if ((Test-Path $fetchLog) -and ((Get-Content $fetchLog -Raw) -match 'WHEELS_DONE')) { $step = 'PyTorch downloaded and verified' }
     }
-    $done = "$text" -match 'SETUP_DONE'
-    $failed = "$text" -match 'failed \(exit|Exception|ERROR:'
+    $done = ("$text" -match 'SETUP_DONE') -or ("$attempts" -match 'SETUP_DONE')
+    # One failed pip attempt is retried by setup-until-done.sh; only giving up is final.
+    $failed = "$attempts" -match 'GAVE_UP'
 
     $pct = if ($done) { 100 } else { [math]::Min(99, [math]::Floor($got / $total * 100)) }
     $n = [math]::Floor($pct / 100 * $width)

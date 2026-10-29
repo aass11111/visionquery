@@ -17,6 +17,38 @@ def test_recolor_only_touches_mask_and_shifts_hue():
     assert b > r  # centre turned blue
 
 
+def test_white_lettering_on_coloured_object_stays_white():
+    frame = np.full((100, 100, 3), (200, 90, 30), np.uint8)  # blue bus (BGR)
+    frame[45:55, 20:80] = (245, 245, 245)  # white lettering
+    mask = np.ones((100, 100), np.float32)
+    out = recolor_frame(frame, mask, "#22c55e", 1.0)
+    b, g, r = out[30, 50].astype(int)
+    assert g > b and g > r  # the paint turned green
+    lb, lg, lr = out[50, 50].astype(int)
+    assert min(lb, lg, lr) > 215 and max(lb, lg, lr) - min(lb, lg, lr) < 20  # lettering still white
+
+
+def test_bus_with_mostly_glass_and_lettering_keeps_neutrals():
+    # Like the real bus: 45% dark windows, 20% white lettering, 35% blue paint.
+    frame = np.full((100, 100, 3), (200, 90, 30), np.uint8)
+    frame[:45] = (40, 35, 30)
+    frame[45:65] = (245, 245, 245)
+    out = recolor_frame(frame, np.ones((100, 100), np.float32), "#22c55e", 1.0)
+    b, g, r = out[80, 50].astype(int)
+    assert g > b and g > r  # paint turned green
+    assert np.abs(out[55, 50].astype(int) - 245).max() < 20  # lettering still white
+    assert np.abs(out[20, 50].astype(int) - frame[20, 50].astype(int)).max() < 15  # glass untouched
+
+
+def test_white_object_is_recoloured():
+    frame = np.full((100, 100, 3), (235, 235, 235), np.uint8)  # white car
+    mask = np.zeros((100, 100), np.float32)
+    mask[20:80, 20:80] = 1
+    out = recolor_frame(frame, mask, "#ef4444", 1.0)
+    b, g, r = out[50, 50].astype(int)
+    assert r > g + 40 and r > b + 40  # it turned red
+
+
 def test_recolor_strength_zero_is_identity():
     frame = np.random.default_rng(0).integers(0, 255, (40, 40, 3), dtype=np.uint8)
     out = recolor_frame(frame, np.ones((40, 40), np.float32), "#00ff00", 0.0)

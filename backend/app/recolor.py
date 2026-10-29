@@ -21,12 +21,41 @@ def feather(mask: np.ndarray) -> np.ndarray:
     return cv2.GaussianBlur(m, (k, k), 0)
 
 
+CHROMATIC = 20.0        # LAB chroma above which a pixel counts as coloured
+PAINTED_SHARE = 0.2     # an object with at least this share of coloured pixels is "painted"
+
+
+def paint_weight(lab: np.ndarray, inside: np.ndarray) -> np.ndarray:
+    """Per-pixel 0..1 weight of how much a pixel is part of the object's paint.
+
+    Chroma = distance from grey in the a/b plane. Real objects mix paint with neutral parts (a bus
+    is often more dark glass and white lettering than blue), so the decision uses the share of
+    coloured pixels, not their median. On a painted object, pixels well below the paint's typical
+    chroma (lettering, tyres, windows) fade out of the recolour with a smooth ramp; on a neutral
+    object (a white car) every pixel is paint."""
+    chroma = np.hypot(lab[..., 1] - 128.0, lab[..., 2] - 128.0)
+    if not inside.any():
+        return np.ones(chroma.shape, np.float32)
+    obj = chroma[inside]
+    coloured = obj > CHROMATIC
+    if coloured.mean() < PAINTED_SHARE:
+        return np.ones(chroma.shape, np.float32)
+    typical = float(np.median(obj[coloured]))
+    lo, hi = 8.0, max(12.0, typical * 0.5)
+    t = np.clip((chroma - lo) / (hi - lo), 0.0, 1.0)
+    return (t * t * (3 - 2 * t)).astype(np.float32)  # smoothstep
+
+
 def recolor_frame(frame: np.ndarray, mask: np.ndarray, hex_color: str, strength: float) -> np.ndarray:
     """Recolour the masked region of a BGR frame.
 
     Works in CIE LAB: chroma (a, b) is replaced by the target colour's, while lightness keeps the
     original texture and shading and is only shifted part of the way toward the target lightness.
     Specular highlights are kept so the surface still looks glossy.
+
+    On a coloured object (a blue bus), neutral parts such as white lettering, black tyres or chrome
+    keep their colour, like a real repaint. A neutral object (a white or grey car) is recoloured
+    as a whole, since its "paint" is the neutral colour itself.
     """
     alpha = feather(mask) * float(np.clip(strength, 0.0, 1.0))
     if alpha.max() <= 0:
@@ -37,7 +66,10 @@ def recolor_frame(frame: np.ndarray, mask: np.ndarray, hex_color: str, strength:
     L = lab[..., 0]
 
     inside = alpha > 0.5
-    mean_l = float(L[inside].mean()) if inside.any() else float(L.mean())
+    alpha = alpha * paint_weight(lab, inside)
+    painted = alpha > 0.5
+    ref = painted if painted.any() else inside
+    mean_l = float(L[ref].mean()) if ref.any() else float(L.mean())
     new_l = np.clip(L + (target[0] - mean_l) * 0.55, 0, 255)
 
     # Slightly less chroma in deep shadow, like real paint.

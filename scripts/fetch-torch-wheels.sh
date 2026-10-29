@@ -39,9 +39,14 @@ fetch() {  # package version
         (( end >= size )) && end=$(( size - 1 ))
         local part="$out.part$i" want=$(( end - start + 1 ))
         if [ -f "$part" ] && [ "$(stat -c %s "$part")" -eq "$want" ]; then continue; fi
+        # Resume each part from its current length (survives dropped connections and power cuts).
         ( for try in $(seq 1 30); do
+            have=0; [ -f "$part" ] && have=$(stat -c %s "$part")
+            (( have > want )) && { rm -f "$part"; have=0; }
+            (( have == want )) && exit 0
             curl -fsL --retry 5 --retry-all-errors --speed-limit 1024 --speed-time 60 \
-              -r "${start}-${end}" -o "$part" "$url" && [ "$(stat -c %s "$part")" -eq "$want" ] && exit 0
+              -r "$(( start + have ))-${end}" "$url" >> "$part"
+            [ "$(stat -c %s "$part")" -eq "$want" ] && exit 0
             sleep 3
           done; exit 1 ) &
         pids+=($!)

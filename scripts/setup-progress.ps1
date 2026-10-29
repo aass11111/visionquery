@@ -38,6 +38,8 @@ $fetchLog = Join-Path $projectDir 'torch-download.log'
 $attemptsLog = Join-Path $projectDir 'setup-attempts.log'
 $pkgStart = $null
 $staleAt = $null
+$modelsSeen = 0
+$modelsAt = 0
 $venv = if ($env:VQ_VENV) { $env:VQ_VENV } else { Join-Path $HOME '.venvs\visionquery' }
 $sitePackages = Join-Path $venv 'Lib\site-packages'
 $venvTotal = 5.0GB
@@ -61,7 +63,24 @@ while ($true) {
     $lastStep = if ($lastStep.Count) { $lastStep[$lastStep.Count - 1].Groups[1].Value } else { '' }
     $pypiActive = $pypi -and -not $pypi.finished -and $pypi.total -gt 0
     $installing = -not $pypiActive -and $lastStep -match '^Installing (PyTorch|backend|\d+ pre-downloaded)' -and "$logNow" -notmatch 'SETUP_DONE'
-    if ($installing) {
+    # Model weights (scripts\fetch_models.py) log "progress N/T MB" every 15 s; fill the gaps
+    # between log lines with the bytes this PC received since the last one.
+    $modelsLog = Join-Path $projectDir 'fetch-models.log'
+    $models = $null
+    if (Test-Path $modelsLog) {
+        $mtext = Get-Content $modelsLog -Raw -ErrorAction SilentlyContinue
+        $mp = [regex]::Matches("$mtext", 'progress (\d+)/(\d+) MB')
+        if ($mp.Count -and "$mtext" -notmatch 'MODELS_DONE|FAILED') {
+            $models = @{ got = [double]$mp[$mp.Count - 1].Groups[1].Value * 1MB; total = [double]$mp[$mp.Count - 1].Groups[2].Value * 1MB }
+            if ($mp.Count -ne $modelsSeen) { $modelsSeen = $mp.Count; $modelsAt = Get-ReceivedBytes }
+        }
+    }
+    if ($models) {
+        $total = $models.total
+        $got = [math]::Min($total, $models.got + ((Get-ReceivedBytes) - $modelsAt))
+        $installing = $false
+        $pypiActive = $false
+    } elseif ($installing) {
         # Install phase: the environment grows to ~5 GB (PyTorch alone unpacks to ~4.3 GB).
         # Sizing thousands of files is slow, so refresh it every 3 seconds.
         $total = $venvTotal
@@ -110,7 +129,10 @@ while ($true) {
     $steps = [regex]::Matches("$text", '(?m)^=== (.+?)\s+\[')
     $step = if ($steps.Count) { $steps[$steps.Count - 1].Groups[1].Value } else { 'Waiting for setup to start' }
     $attempts = if (Test-Path $attemptsLog) { Get-Content $attemptsLog -Raw -ErrorAction SilentlyContinue } else { '' }
-    if ($installing) {
+    if ($models) {
+        $step = 'Downloading model weights: YOLO-World, SAM 2, CLIP (12 connections)'
+        $done = $false
+    } elseif ($installing) {
         $step = "$lastStep (unpacking into the environment)"
     } elseif ($pypi -and -not $pypi.finished -and $pypi.total -gt 0) {
         $step = "Downloading $($pypi.files) big Python packages over 12 connections"
@@ -124,7 +146,7 @@ while ($true) {
     } elseif ($wheelFiles -and -not ("$text" -match 'Installing PyTorch')) {
         $step = 'Downloading PyTorch in 8 parallel parts'
     }
-    $done = ("$text" -match 'SETUP_DONE') -or ("$attempts" -match 'SETUP_DONE')
+    $done = -not $models -and (("$text" -match 'SETUP_DONE') -or ("$attempts" -match 'SETUP_DONE'))
     # One failed pip attempt is retried by setup-until-done.sh; only giving up is final.
     $failed = "$attempts" -match 'GAVE_UP'
 

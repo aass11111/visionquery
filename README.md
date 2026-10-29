@@ -23,6 +23,28 @@ so the output never flickers. Only the models a stage needs are kept on the GPU.
 
 Pick **Runtime → Change runtime type → T4 GPU**, run the cells in order, and open the link the last setup cell prints.
 
+## Run natively on Windows (NVIDIA GPU)
+
+Tested on an RTX 3060: search ~9 s for 100 frames (first run includes model loading), preview ~1.3 s,
+recolor of 100 frames ~17 s, 2.7 GB VRAM.
+
+```bash
+bash scripts/fetch-torch-wheels.sh                       # PyTorch CUDA, parallel + verified (slow lines)
+python scripts/fetch_wheels.py                          # big PyPI wheels, parallel + verified
+powershell -ExecutionPolicy Bypass -File scripts/setup-windows.ps1   # Python 3.11, ffmpeg, venv
+python scripts/fetch_models.py                          # YOLO-World, SAM 2, CLIP weights
+cd frontend && npm install && npm run build && cd ..
+```
+
+Then start the server from `backend/` (it serves the built UI too) and open http://127.0.0.1:8000:
+
+```powershell
+$env:FRONTEND_DIST = '..\frontend\dist'; & "$HOME\.venvs\visionquery\Scripts\python.exe" -m uvicorn app.main:app --port 8000
+```
+
+`scripts/setup-progress.ps1` shows a live progress bar for every step. End-to-end check:
+`PATH="$HOME/.venvs/visionquery/Scripts:$PATH" bash scripts/e2e.sh`.
+
 ## Run with Docker
 
 ```bash

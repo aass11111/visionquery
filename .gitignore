@@ -12,3 +12,4 @@ __pycache__/
 .env
 .DS_Store
 *.log
+fetch-wheels.json*

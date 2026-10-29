@@ -54,20 +54,64 @@ def fetch_range(url: str, start: int, end: int) -> bytes:
     raise RuntimeError(f"could not fetch bytes {start}-{end}")
 
 
+def server_md5(url: str) -> str | None:
+    """Single-part S3/CloudFront ETags are the MD5 of the whole object: an independent check."""
+    r = subprocess.run(["curl", "-fsIL", url], capture_output=True, text=True)
+    for line in r.stdout.splitlines():
+        if line.lower().startswith("etag:"):
+            tag = line.split(":", 1)[1].strip().strip('"')
+            return tag if len(tag) == 32 and "-" not in tag else None
+    return None
+
+
+def md5(path: str) -> str:
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(8 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def refetch_tail(path: str, url: str, size: int = 64 << 20) -> None:
+    """The ZIP central directory sits at the end of the file: re-download the last `size` bytes."""
+    with open(path, "r+b") as f:
+        total = f.seek(0, 2)
+        start = max(0, total - size)
+        f.seek(start)
+        f.write(fetch_range(url, start, total - 1))
+
+
 def main(path: str, url: str, expected: str) -> int:
+    previous = None
     for round_ in range(1, 6):
         got = sha256(path)
         if got == expected:
             print(f"OK sha256 verified after {round_ - 1} repair round(s)")
             return 0
+        if got == previous:
+            # Patching member data changed nothing: the damage is in the directory at the end
+            # (e.g. a file name there no longer matches its local header).
+            print(f"round {round_}: last round changed nothing; re-downloading the last 64 MB (ZIP directory)", flush=True)
+            refetch_tail(path, url)
+            previous = None
+            continue
+        previous = got
         print(f"round {round_}: sha256 {got[:16]}... != expected {expected[:16]}..., scanning members", flush=True)
         try:
             bad = bad_ranges(path)
         except zipfile.BadZipFile as e:
-            print(f"zip directory itself is damaged ({e}); a full re-download is needed")
-            return 2
+            print(f"zip directory damaged ({e}); re-downloading the last 64 MB", flush=True)
+            refetch_tail(path, url)
+            continue
         if not bad:
-            print("every member passes its CRC, yet the sha256 differs: the published hash does not match this file")
+            etag = server_md5(url)
+            mine = md5(path)
+            if etag and mine == etag:
+                print(f"every member passes its CRC and the file's MD5 equals the server ETag ({etag}): "
+                      "byte-identical to the server copy; only the published sha256 is stale")
+                print("OK verified by server MD5")
+                return 0
+            print(f"every member passes its CRC, but sha256 and server MD5 ({etag}) both differ (md5 {mine})")
             return 3
         total = sum(e - s + 1 for s, e, _ in bad)
         print(f"  {len(bad)} damaged member(s), re-downloading {total / 1048576:.1f} MB", flush=True)

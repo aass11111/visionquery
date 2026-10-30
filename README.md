@@ -28,7 +28,7 @@ so the output never flickers. Only the models a stage needs are kept on the GPU.
 | **Edit batch** | Up to 8 objects in one render, each recolor / blur / pixelate. |
 | **Privacy** | Blur or pixelate every face, plate or person in the video (detector only). |
 | **Live mode** | Webcam detection at ≤ 3 fps; effects drawn in the browser. |
-| **Library** | Every upload is listed under the drop zone (open / delete). Stored in `%USERPROFILE%\VisionQuery` — outside the project, never committed. Override with `DATA_DIR`. |
+| **Library** | Every upload is listed under the drop zone (open / delete). Stored in `Downloads\VisionQuery` — outside the project, never committed. Override with `DATA_DIR`. |
 | **Power-cut safe** | Jobs are saved to disk and continue after a restart; renders are written in segments. |
 | **GPU guard** | Process capped at 60 % of VRAM, one job at a time, live frames dropped when busy, optical flow on the CPU. Peak 2.6 GB on an RTX 3060 for every feature. |
 | **Evaluation** | `scripts/benchmark.py` + `docs/EVALUATION.md` (bilingual chapter) + charts in `docs/eval/`. |

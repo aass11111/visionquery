@@ -3,12 +3,18 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+def _default_library() -> Path:
+    """Downloads\\VisionQuery when there is a Downloads folder (easy to find), else ~/VisionQuery."""
+    downloads = Path.home() / "Downloads"
+    return (downloads if downloads.is_dir() else Path.home()) / "VisionQuery"
+
+
 @dataclass(frozen=True)
 class Settings:
     model_dir: Path = Path(os.getenv("MODEL_DIR", "./.models"))
     # The library (uploads, renders, job checkpoints) lives in its own folder outside the project, so user
     # videos never sit next to the code or near git. Docker / Colab set DATA_DIR explicitly.
-    data_dir: Path = Path(os.getenv("DATA_DIR") or Path.home() / "VisionQuery")
+    data_dir: Path = Path(os.getenv("DATA_DIR") or _default_library())
     yolo_model: str = os.getenv("YOLO_MODEL", "yolov8s-worldv2.pt")
     sam_model: str = os.getenv("SAM_MODEL", "sam2.1_t.pt")
     clip_model: str = os.getenv("CLIP_MODEL", "ViT-B/32")

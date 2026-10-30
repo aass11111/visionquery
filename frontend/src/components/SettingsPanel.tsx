@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Cpu, Gauge, RotateCcw, ShieldCheck, Settings2, X, Zap } from 'lucide-react';
+import { Cpu, Gauge, Rocket, RotateCcw, ShieldCheck, Settings2, X, Zap } from 'lucide-react';
 import { cn } from '../lib/format';
 import { DEFAULT_SETTINGS, type AppSettings } from '../types';
 
@@ -61,6 +61,41 @@ export function SettingsPanel({ open, onClose, settings, onChange, device }: Set
         </div>
 
         <div className="flex-1 space-y-7 overflow-y-auto p-5">
+          <section className="space-y-3">
+            <div>
+              <div className="label flex items-center gap-2">
+                <Rocket size={13} strokeWidth={1.75} /> Search mode
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                Instant uses the CLIP index built after upload and checks only the most promising frames.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Search mode">
+              {(
+                [
+                  ['instant', 'Instant', 'Index ranks frames · ~10× less GPU work'],
+                  ['full', 'Full scan', 'Every N frames · finds rare moments'],
+                ] as const
+              ).map(([mode, title, text]) => (
+                <button
+                  key={mode}
+                  role="radio"
+                  aria-checked={settings.searchMode === mode}
+                  onClick={() => onChange({ ...settings, searchMode: mode })}
+                  className={cn(
+                    'rounded-xl border p-3 text-left transition',
+                    settings.searchMode === mode
+                      ? 'border-accent/50 bg-accent/[0.08] shadow-glow'
+                      : 'border-white/[0.06] bg-ink-850 hover:border-white/[0.14]',
+                  )}
+                >
+                  <span className="block text-sm font-medium">{title}</span>
+                  <span className="mt-1 block text-[11px] leading-relaxed text-slate-400">{text}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
           <section className="space-y-3">
             <div>
               <div className="label flex items-center gap-2">

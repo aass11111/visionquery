@@ -1,12 +1,34 @@
-import { CheckCircle2, Download, Eye, Loader2, MousePointerClick, Palette, Play, Wand2 } from 'lucide-react';
+import {
+  CheckCircle2,
+  Download,
+  Droplets,
+  Eye,
+  Grid3x3,
+  Layers,
+  Loader2,
+  MousePointerClick,
+  Palette,
+  Play,
+  Wand2,
+} from 'lucide-react';
+
+const EFFECTS: { id: Effect; label: string; icon: typeof Palette }[] = [
+  { id: 'recolor', label: 'Recolor', icon: Palette },
+  { id: 'blur', label: 'Blur', icon: Droplets },
+  { id: 'pixelate', label: 'Pixelate', icon: Grid3x3 },
+];
 import { HexColorInput, HexColorPicker } from 'react-colorful';
 import { cn, formatPercent, formatTime } from '../lib/format';
-import type { Selection, VideoMeta } from '../types';
+import type { Effect, Selection, VideoMeta } from '../types';
 import { BeforeAfter } from './BeforeAfter';
 
 interface RecolorPanelProps {
   meta: VideoMeta;
   selection: Selection | null;
+  effect: Effect;
+  onEffectChange: (e: Effect) => void;
+  onAddToBatch: () => void;
+  batchCount: number;
   color: string;
   onColorChange: (hex: string) => void;
   strength: number;
@@ -49,7 +71,7 @@ export function RecolorPanel(p: RecolorPanelProps) {
       <div className="panel-header">
         <span className="label flex items-center gap-2">
           <Palette size={14} strokeWidth={1.75} />
-          Recolor
+          Edit object
         </span>
       </div>
 
@@ -72,6 +94,26 @@ export function RecolorPanel(p: RecolorPanelProps) {
             </div>
           </div>
 
+          <div className="grid grid-cols-3 gap-1 rounded-xl bg-ink-850 p-1" role="radiogroup" aria-label="Effect">
+            {EFFECTS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                role="radio"
+                aria-checked={p.effect === id}
+                onClick={() => p.onEffectChange(id)}
+                className={cn(
+                  'flex items-center justify-center gap-1.5 rounded-lg border py-1.5 text-xs transition',
+                  p.effect === id
+                    ? 'border-accent/40 bg-accent/20 text-white'
+                    : 'border-transparent text-slate-400 hover:bg-white/[0.04] hover:text-slate-200',
+                )}
+              >
+                <Icon size={13} strokeWidth={1.75} /> {label}
+              </button>
+            ))}
+          </div>
+
+          {p.effect === 'recolor' && (
           <div className="space-y-2.5">
             <span className="label">Target colour</span>
             <div className="vq-picker">
@@ -97,6 +139,7 @@ export function RecolorPanel(p: RecolorPanelProps) {
               ))}
             </div>
           </div>
+          )}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -114,7 +157,11 @@ export function RecolorPanel(p: RecolorPanelProps) {
               aria-label="Recolor strength"
               style={{ background: `linear-gradient(90deg, #7c5cff 0%, #22d3ee ${pct}%, #222636 ${pct}%)` }}
             />
-            <p className="text-[11px] text-slate-500">Lower keeps more of the original colour; shading is always preserved.</p>
+            <p className="text-[11px] text-slate-500">
+              {p.effect === 'recolor'
+                ? 'Lower keeps more of the original colour; shading, lettering and glass are preserved.'
+                : 'How strongly the object is hidden.'}
+            </p>
           </div>
 
           <div className="space-y-2.5">
@@ -133,10 +180,21 @@ export function RecolorPanel(p: RecolorPanelProps) {
           </div>
 
           <div className="space-y-2">
-            <button className="btn-primary h-11 w-full" onClick={p.onApply} disabled={p.applying}>
-              {p.applying ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} strokeWidth={1.75} />}
-              {p.applying ? `Rendering… ${formatPercent(p.applyProgress ?? 0)}` : 'Apply to entire video'}
-            </button>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <button className="btn-primary h-11" onClick={p.onApply} disabled={p.applying}>
+                {p.applying ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} strokeWidth={1.75} />}
+                {p.applying ? `Rendering… ${formatPercent(p.applyProgress ?? 0)}` : 'Apply to entire video'}
+              </button>
+              <button
+                className="btn-ghost h-11 px-3"
+                onClick={p.onAddToBatch}
+                disabled={p.applying || p.batchCount >= 8}
+                title="Queue this object and edit several in one render"
+              >
+                <Layers size={15} strokeWidth={1.75} />
+                <span className="text-xs">Add to batch{p.batchCount ? ` (${p.batchCount})` : ''}</span>
+              </button>
+            </div>
             {p.applying && (
               <div className="h-1 overflow-hidden rounded-full bg-ink-700">
                 <div
@@ -151,7 +209,7 @@ export function RecolorPanel(p: RecolorPanelProps) {
             <div className="animate-fade-up space-y-3 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] p-3">
               <div className="flex items-center gap-2 text-sm text-emerald-300">
                 <CheckCircle2 size={16} strokeWidth={1.75} />
-                Recolored video ready
+                Edited video ready
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button className="btn-ghost" onClick={p.onViewResult}>

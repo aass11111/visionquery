@@ -330,17 +330,30 @@ def _follow_target(tracks: dict[int, list[tuple[BoxT, int | None]]], start: int,
     return out
 
 
-def _track_all(job: Job, video_id: str, queries: list[str], half: bool, progress_to: float, conf: float = 0.1
-               ) -> tuple[dict[int, list[tuple[BoxT, int | None]]], int]:
-    """Pass 1: YOLO-World + ByteTrack on every frame for all queries at once. Cached in the job folder."""
-    cache = job.workdir / "tracks.json"
+def _track_all(job: Job, video_id: str, queries: list[str], half: bool, progress: tuple[float, float],
+               conf: float = 0.1) -> tuple[dict[str, dict[int, list[tuple[BoxT, int | None]]]], int]:
+    """Pass 1: YOLO-World + ByteTrack on every frame, one pass per object type, so a "bus" target can
+    never be matched to a person's track. Each pass is cached in the job folder."""
+    lo, hi = progress
+    out: dict[str, dict[int, list[tuple[BoxT, int | None]]]] = {}
+    frames = 0
+    for k, q in enumerate(queries):
+        span = (lo + (hi - lo) * k / len(queries), lo + (hi - lo) * (k + 1) / len(queries))
+        out[q], frames = _track_one(job, video_id, q, k, half, span, conf)
+    return out, frames
+
+
+def _track_one(job: Job, video_id: str, query: str, k: int, half: bool, progress: tuple[float, float],
+               conf: float) -> tuple[dict[int, list[tuple[BoxT, int | None]]], int]:
+    cache = job.workdir / f"tracks_{k}.json"
     if cache.exists():
         d = json.loads(cache.read_text())
-        return {int(k): [(tuple(b), t) for b, t in v] for k, v in d["tracks"].items()}, d["frames"]
+        return {int(f): [(tuple(b), t) for b, t in v] for f, v in d["tracks"].items()}, d["frames"]
     meta = video.get_meta(video_id)
     yolo = registry.use("yolo_track", "sam")["yolo_track"]
-    _set_classes(yolo, queries, half)
-    yolo.predictor = None  # fresh ByteTrack state for this video
+    _set_classes(yolo, [query], half)
+    yolo.predictor = None  # fresh ByteTrack state for this pass
+    lo, hi = progress
     tracks: dict[int, list[tuple[BoxT, int | None]]] = defaultdict(list)
     cap = cv2.VideoCapture(str(video.source_path(video_id)))
     idx = 0
@@ -354,11 +367,11 @@ def _track_all(job: Job, video_id: str, queries: list[str], half: bool, progress
             tracks[idx] = [(b, t) for b, _, t in _boxes(res[0])]
             idx += 1
             if idx % 10 == 0:
-                job.update(progress=progress_to * idx / meta.frame_count,
-                           message=f"Tracking {idx:,}/{meta.frame_count:,}")
+                job.update(progress=lo + (hi - lo) * idx / meta.frame_count,
+                           message=f"Tracking “{query}” {idx:,}/{meta.frame_count:,}")
     finally:
         cap.release()
-    cache.write_text(json.dumps({"frames": idx, "tracks": {k: v for k, v in tracks.items()}}))
+    cache.write_text(json.dumps({"frames": idx, "tracks": {f: v for f, v in tracks.items()}}))
     return tracks, idx
 
 
@@ -397,7 +410,8 @@ def _render(job: Job, video_id: str, frame_count: int, paint, progress: tuple[fl
 
     out_path = settings.outputs_dir / f"{job.job_id}.mp4"
     listing = seg_dir / "list.txt"
-    listing.write_text("".join(f"file '{p.as_posix()}'\n" for p in sorted(seg_dir.glob("*.mp4"))))
+    # ffmpeg resolves list entries relative to the list file, so write absolute paths.
+    listing.write_text("".join(f"file '{p.resolve().as_posix()}'\n" for p in sorted(seg_dir.glob("*.mp4"))))
     r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(listing),
                         "-i", str(src), "-map", "0:v:0", "-map", "1:a:0?", "-c:v", "copy", "-c:a", "aac",
                         "-shortest", "-movflags", "+faststart", str(out_path)], capture_output=True, text=True)
@@ -412,15 +426,12 @@ def _render(job: Job, video_id: str, frame_count: int, paint, progress: tuple[fl
 def _render_targets(job: Job, video_id: str, targets: list[Target], frame_step: int, half: bool,
                     progress: tuple[float, float]) -> RecolorResult:
     lo, hi = progress
-    queries = []
-    for t in targets:
-        q = translate(t.query)[0].lower()
-        if q not in queries:
-            queries.append(q)
+    target_queries = [translate(t.query)[0].lower() for t in targets]
+    queries = list(dict.fromkeys(target_queries))  # unique, in order
     job.update(message="Loading YOLO-World + SAM 2")
-    tracks, frame_count = _track_all(job, video_id, queries, half, progress_to=lo + (hi - lo) * 0.4)
-    paths = [_follow_target(tracks, t.frame_index, t.box, frame_count, search_window=max(2, frame_step))
-             for t in targets]
+    tracks, frame_count = _track_all(job, video_id, queries, half, (lo, lo + (hi - lo) * 0.4))
+    paths = [_follow_target(tracks[q], t.frame_index, t.box, frame_count, search_window=max(2, frame_step))
+             for t, q in zip(targets, target_queries)]
     sam = registry.use("yolo_track", "sam")["sam"]
     flow = FlowPropagator()
     segmented = 0

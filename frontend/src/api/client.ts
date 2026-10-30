@@ -1,4 +1,16 @@
-import type { Health, Job, PreviewRequest, RecolorRequest, SearchRequest, Suggestions, VideoMeta } from '../types';
+import type {
+  CommandParse,
+  CommandRequest,
+  Health,
+  IndexStatus,
+  Job,
+  PreviewRequest,
+  RecolorRequest,
+  RedactRequest,
+  SearchRequest,
+  Suggestions,
+  VideoMeta,
+} from '../types';
 
 const BACKEND_DOWN = 'Cannot reach the backend on port 8000 — is it running?';
 
@@ -51,6 +63,20 @@ export const api = {
 
   streamUrl: (videoId: string) => `/api/videos/${videoId}/stream`,
   suggestions: (videoId: string) => request<Suggestions>(`/api/videos/${videoId}/suggestions`),
+  video: (videoId: string) => request<VideoMeta>(`/api/videos/${videoId}`),
+  indexStatus: (videoId: string) => request<IndexStatus>(`/api/videos/${videoId}/index`),
+  parseCommand: (text: string) => request<CommandParse>(`/api/command/parse?text=${encodeURIComponent(text)}`),
+  command: (req: CommandRequest) => request<{ job_id: string }>('/api/command', json(req)),
+  redact: (req: RedactRequest) => request<{ job_id: string }>('/api/redact', json(req)),
+  activeJobs: () => request<Job[]>('/api/jobs?active=1'),
+
+  searchImage(videoId: string, file: File): Promise<{ job_id: string }> {
+    const form = new FormData();
+    form.append('video_id', videoId);
+    form.append('top_k', '40');
+    form.append('file', file);
+    return request<{ job_id: string }>('/api/search-image', { method: 'POST', body: form });
+  },
   search: (req: SearchRequest) => request<{ job_id: string }>('/api/search', json(req)),
   recolor: (req: RecolorRequest) => request<{ job_id: string }>('/api/recolor', json(req)),
   job: (jobId: string) => request<Job>(`/api/jobs/${jobId}`),

@@ -9,7 +9,9 @@ export const demoHealth: Health = {
   gpu_name: 'NVIDIA GeForce RTX 4060',
   vram_total_gb: 8,
   vram_used_gb: 2.3,
+  vram_cap_gb: 4.8,
   loaded_models: ['clip', 'yolo'],
+  busy: false,
 };
 
 export const demoVideo: VideoMeta = {
@@ -69,5 +71,13 @@ export function demoSearch(): SearchResult {
       ],
     });
   }
-  return { query: 'red car', frame_step: 5, frames_scanned: 540, hits };
+  return {
+    query: 'سيارة حمراء',
+    query_en: 'red car',
+    translated: true,
+    mode: 'instant',
+    frame_step: 15,
+    frames_scanned: 40,
+    hits,
+  };
 }

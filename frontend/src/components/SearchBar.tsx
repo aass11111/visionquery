@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CornerDownLeft, Loader2, Search, Sparkles } from 'lucide-react';
+import { CornerDownLeft, Languages, Loader2, Search, Sparkles, Wand2 } from 'lucide-react';
 import { cn } from '../lib/format';
-import type { Suggestion } from '../types';
+import type { CommandParse, Suggestion } from '../types';
 
 export interface SearchBarProps {
   value: string;
@@ -14,6 +14,13 @@ export interface SearchBarProps {
   onUseClipChange: (v: boolean) => void;
   suggestions: Suggestion[] | null; // null = not available (backend busy or failed)
   suggestionsLoading: boolean;
+  /** The typed text parsed as an edit command ("make the red car blue"), when it is one. */
+  command: CommandParse | null;
+  onRunCommand: () => void;
+  /** English the models searched for, when the query was Arabic. */
+  translatedAs: string | null;
+  /** Extra controls next to the search button (image search). */
+  extra?: React.ReactNode;
 }
 
 const EXAMPLES = ['red car', 'person with a backpack', 'dog', 'white truck', 'bicycle'];
@@ -97,7 +104,12 @@ export function SearchBar({
   onUseClipChange,
   suggestions,
   suggestionsLoading,
+  command,
+  onRunCommand,
+  translatedAs,
+  extra,
 }: SearchBarProps) {
+  const isCommand = !!command?.ok;
   const inputRef = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
   const [active, setActive] = useState(-1);
@@ -128,6 +140,11 @@ export function SearchBar({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (open && active >= 0) return pick(options[active].label);
+    if (isCommand && !loading && !disabled) {
+      setDismissed(true);
+      onRunCommand();
+      return;
+    }
     if (value.trim() && !loading && !disabled) {
       setDismissed(true);
       onSubmit();
@@ -261,11 +278,18 @@ export function SearchBar({
           <span>CLIP re-rank</span>
         </button>
 
+        {extra}
+
         <button type="submit" disabled={disabled || loading || !value.trim()} className="btn-primary h-11 shrink-0 px-5">
           {loading ? (
             <>
               <Loader2 size={16} strokeWidth={1.75} className="animate-spin" />
-              <span>Searching</span>
+              <span>Working</span>
+            </>
+          ) : isCommand ? (
+            <>
+              <Wand2 size={16} strokeWidth={1.75} />
+              <span>Run</span>
             </>
           ) : (
             <>
@@ -276,6 +300,28 @@ export function SearchBar({
         </button>
       </div>
 
+      {isCommand && command && (
+        <div className="mx-2 mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-accent/25 bg-accent/[0.07] px-3 py-1.5 text-xs text-slate-300 animate-fade-up">
+          <Wand2 size={13} className="text-accent-soft" />
+          <span className="font-medium text-white">Command</span>
+          <span>
+            {command.effect === 'recolor' ? 'recolor' : command.effect} “{command.object_en}”
+          </span>
+          {command.color && (
+            <span className="inline-flex items-center gap-1.5">
+              →
+              <span className="h-2.5 w-2.5 rounded-full ring-1 ring-white/30" style={{ background: command.color }} />
+              {command.color_name}
+            </span>
+          )}
+          <span className="text-slate-500">· press Enter to search and edit the whole video</span>
+        </div>
+      )}
+      {!isCommand && translatedAs && (
+        <div className="mx-2 mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-400">
+          <Languages size={12} className="text-signal" /> searched as <span className="num text-slate-200">{translatedAs}</span>
+        </div>
+      )}
       {!loading && (
         <div className="flex flex-wrap items-center gap-1.5 px-2 pb-1 pt-2">
           {suggestionsLoading ? (

@@ -15,13 +15,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import commands, index, pipeline, video
+from . import commands, index, library, pipeline, video
 from .arabic import translate
 from .config import settings
 from .jobs import gpu_lock, jobs
 from .models import DEVICE, registry, vram
 from .schemas import (CommandParse, CommandRequest, Health, ImageSearchRequest, IndexRequest, IndexStatus, JobRef,
-                      PreviewRequest, RecolorRequest, RedactRequest, SearchRequest, Suggestions, VideoMeta)
+                      Library, PreviewRequest, RecolorRequest, RedactRequest, SearchRequest, Suggestions, VideoMeta)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("visionquery")
@@ -88,6 +88,21 @@ def upload(file: UploadFile = File(...)) -> VideoMeta:
 @app.get("/api/videos/{video_id}", response_model=VideoMeta)
 def get_video(video_id: str) -> VideoMeta:
     return _meta_or_404(video_id)
+
+
+@app.get("/api/library", response_model=Library)
+def get_library() -> Library:
+    return library.listing()
+
+
+@app.delete("/api/videos/{video_id}")
+def delete_video(video_id: str) -> dict:
+    _meta_or_404(video_id)
+    try:
+        library.delete(video_id)
+    except RuntimeError as e:
+        raise HTTPException(409, str(e))
+    return {"deleted": video_id}
 
 
 @app.get("/api/videos/{video_id}/stream")

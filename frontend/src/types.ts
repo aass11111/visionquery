@@ -189,6 +189,23 @@ export interface Selection {
   detection: Detection;
 }
 
+/** One video in the local library (stored outside the project folder). */
+export interface LibraryItem {
+  meta: VideoMeta;
+  created: number; // unix seconds
+  thumbnail_url: string;
+  index_status: 'none' | 'building' | 'ready';
+  outputs: number; // rendered edits of this video
+  bytes: number; // disk use of the video and everything derived from it
+  busy: boolean; // a job is running on it (cannot be deleted now)
+}
+
+export interface Library {
+  path: string; // folder on this PC, e.g. C:\Users\me\VisionQuery
+  total_bytes: number;
+  videos: LibraryItem[]; // newest first
+}
+
 /** Live mode: the server's answer to one webcam frame. */
 export interface LiveDetections {
   w: number;

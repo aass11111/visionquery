@@ -5,6 +5,7 @@ import { FrameStepSlider } from './components/FrameStepSlider';
 import { Header } from './components/Header';
 import { ImageSearchButton } from './components/ImageSearchButton';
 import { JobProgress } from './components/JobProgress';
+import { LibraryGrid } from './components/LibraryGrid';
 import { LiveMode } from './components/LiveMode';
 import { PrivacyPanel } from './components/PrivacyPanel';
 import { RecolorPanel } from './components/RecolorPanel';
@@ -26,6 +27,7 @@ import {
   type Health,
   type IndexStatus,
   type Job,
+  type Library,
   type RecolorResult,
   type RedactResult,
   type SearchResult,
@@ -64,6 +66,9 @@ export default function App() {
   const [indexStatus, setIndexStatus] = useState<IndexStatus | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [library, setLibrary] = useState<Library | null>(null);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -306,6 +311,40 @@ export default function App() {
     setQuery('');
   };
 
+  // ---------------------------------------------------------------- library (landing page)
+
+  const refreshLibrary = useCallback(() => {
+    api
+      .library()
+      .then((l) => {
+        setLibrary(l);
+        setLibraryError(null);
+      })
+      .catch((e) => setLibraryError((e as Error).message));
+  }, []);
+
+  useEffect(() => {
+    if (!video && !DEMO) refreshLibrary();
+  }, [video, refreshLibrary]);
+
+  const openFromLibrary = (meta: VideoMeta) => {
+    setVideo(meta);
+    store(VIDEO_KEY, meta.video_id);
+    void reattach(meta.video_id);
+  };
+
+  const deleteFromLibrary = async (videoId: string) => {
+    setDeletingId(videoId);
+    try {
+      await api.deleteVideo(videoId);
+      refreshLibrary();
+    } catch (e) {
+      setLibraryError((e as Error).message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const onFile = async (file: File) => {
     setUploadError(null);
     setUploadProgress(0);
@@ -483,8 +522,17 @@ export default function App() {
 
       <main className="mx-auto max-w-[1600px] px-6 py-6">
         {!video ? (
-          <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
+          <div className="flex min-h-[calc(100vh-8rem)] flex-col items-center justify-center gap-12 py-6">
             <UploadZone onFile={onFile} progress={uploadProgress} error={uploadError} />
+            {!DEMO && (
+              <LibraryGrid
+                library={library}
+                error={libraryError}
+                onOpen={openFromLibrary}
+                onDelete={deleteFromLibrary}
+                deletingId={deletingId}
+              />
+            )}
           </div>
         ) : (
           <div className="space-y-6 animate-fade-up">

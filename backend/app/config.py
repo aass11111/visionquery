@@ -6,7 +6,9 @@ from pathlib import Path
 @dataclass(frozen=True)
 class Settings:
     model_dir: Path = Path(os.getenv("MODEL_DIR", "./.models"))
-    data_dir: Path = Path(os.getenv("DATA_DIR", "./.data"))
+    # The library (uploads, renders, job checkpoints) lives in its own folder outside the project, so user
+    # videos never sit next to the code or near git. Docker / Colab set DATA_DIR explicitly.
+    data_dir: Path = Path(os.getenv("DATA_DIR") or Path.home() / "VisionQuery")
     yolo_model: str = os.getenv("YOLO_MODEL", "yolov8s-worldv2.pt")
     sam_model: str = os.getenv("SAM_MODEL", "sam2.1_t.pt")
     clip_model: str = os.getenv("CLIP_MODEL", "ViT-B/32")
@@ -43,3 +45,14 @@ class Settings:
 settings = Settings()
 for d in (settings.model_dir, settings.videos_dir, settings.outputs_dir, settings.jobs_dir):
     d.mkdir(parents=True, exist_ok=True)
+_readme = settings.data_dir / "README.txt"
+if not _readme.exists():
+    _readme.write_text(
+        "VisionQuery library\n\n"
+        "videos/   the videos you uploaded (with their frames and search index)\n"
+        "outputs/  recoloured / redacted videos\n"
+        "jobs/     progress of running jobs, so they resume after a power cut\n\n"
+        "This folder is separate from the project code and is never uploaded anywhere.\n"
+        "Delete videos from the app (Your library), or delete this folder to start fresh.\n",
+        encoding="utf-8",
+    )

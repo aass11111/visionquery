@@ -84,6 +84,22 @@ class IndexStatus(BaseModel):
     step: int
 
 
+class LibraryItem(BaseModel):
+    meta: VideoMeta
+    created: float
+    thumbnail_url: str
+    index_status: Literal["none", "building", "ready"]
+    outputs: int
+    bytes: int
+    busy: bool
+
+
+class Library(BaseModel):
+    path: str
+    total_bytes: int
+    videos: list[LibraryItem]
+
+
 class Target(BaseModel):
     query: str = Field(min_length=1, max_length=200)
     frame_index: int = Field(ge=0)

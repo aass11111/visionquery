@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Radio, X, Video, Square, AlertTriangle } from 'lucide-react';
 import type { LiveDetections } from '../types';
 import { cn } from '../lib/format';
+import { useT } from '../i18n';
 
 type EffectMode = 'Boxes' | 'Blur' | 'Pixelate';
 type FpsOption = 1 | 2 | 3;
@@ -30,6 +31,7 @@ function drawRoundedRect(
 
 export function LiveMode(props: { onClose: () => void }) {
   const { onClose } = props;
+  const t = useT();
 
   const [query, setQuery] = useState('person');
   const [debouncedQuery, setDebouncedQuery] = useState('person');
@@ -91,7 +93,7 @@ export function LiveMode(props: { onClose: () => void }) {
     setError(null);
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Webcam is not supported in this browser environment.');
+        throw new Error(t('Webcam is not supported in this browser environment.'));
       }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 1280, height: 720 },
@@ -103,14 +105,14 @@ export function LiveMode(props: { onClose: () => void }) {
       }
       setIsRunning(true);
     } catch (err: unknown) {
-      let message = 'Failed to access camera.';
+      let message = t('Failed to access camera.');
       if (err instanceof DOMException) {
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-          message = 'Camera permission denied. Please allow camera access in your browser settings.';
+          message = t('Camera permission denied. Please allow camera access in your browser settings.');
         } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-          message = 'No camera found. Please connect a webcam.';
+          message = t('No camera found. Please connect a webcam.');
         } else {
-          message = err.message || 'Unable to start camera.';
+          message = err.message || t('Unable to start camera.');
         }
       } else if (err instanceof Error) {
         message = err.message;
@@ -118,7 +120,7 @@ export function LiveMode(props: { onClose: () => void }) {
       setError(message);
       setIsRunning(false);
     }
-  }, []);
+  }, [t]);
 
   const handleToggleRunning = () => {
     if (isRunning) {
@@ -201,7 +203,7 @@ export function LiveMode(props: { onClose: () => void }) {
     };
 
     ws.onerror = () => {
-      setError('Live detection socket error occurred.');
+      setError(t('Live detection socket error occurred.'));
       pendingRef.current = false;
     };
 
@@ -216,7 +218,7 @@ export function LiveMode(props: { onClose: () => void }) {
       }
       pendingRef.current = false;
     };
-  }, [isRunning, debouncedQuery]);
+  }, [isRunning, debouncedQuery, t]);
 
   // Frame sending interval (back-pressured, only 1 frame in flight)
   useEffect(() => {
@@ -407,9 +409,9 @@ export function LiveMode(props: { onClose: () => void }) {
               strokeWidth={1.75}
               className={cn('text-accent shrink-0', isRunning && 'animate-pulse')}
             />
-            <h2 className="text-base font-semibold text-slate-100">Live mode</h2>
+            <h2 className="text-base font-semibold text-slate-100">{t('Live mode')}</h2>
             <span className="chip">
-              Detection only · max {fps} fps · GPU-safe
+              {t('Detection only · max {fps} fps · GPU-safe', { fps })}
             </span>
           </div>
 
@@ -417,8 +419,8 @@ export function LiveMode(props: { onClose: () => void }) {
             type="button"
             onClick={handleClose}
             className="btn-icon"
-            aria-label="Close live mode"
-            title="Close live mode"
+            aria-label={t('Close live mode')}
+            title={t('Close live mode')}
           >
             <X size={16} strokeWidth={1.75} />
           </button>
@@ -431,7 +433,7 @@ export function LiveMode(props: { onClose: () => void }) {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search query (e.g. person, car, شخص)..."
+              placeholder={t('Search query (e.g. person, car, شخص)...')}
               className="input"
             />
           </div>
@@ -439,7 +441,7 @@ export function LiveMode(props: { onClose: () => void }) {
           {/* FPS segmented buttons */}
           <div className="flex items-center gap-1 rounded-xl border border-white/[0.08] bg-ink-850 p-1">
             <span className="px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-              FPS
+              {t('FPS')}
             </span>
             {([1, 2, 3] as const).map((rate) => (
               <button
@@ -472,7 +474,7 @@ export function LiveMode(props: { onClose: () => void }) {
                     : 'text-slate-400 hover:text-slate-200'
                 )}
               >
-                {mode}
+                {t(mode)}
               </button>
             ))}
           </div>
@@ -486,12 +488,12 @@ export function LiveMode(props: { onClose: () => void }) {
             {isRunning ? (
               <>
                 <Square size={16} strokeWidth={1.75} />
-                <span>Stop</span>
+                <span>{t('Stop')}</span>
               </>
             ) : (
               <>
                 <Video size={16} strokeWidth={1.75} />
-                <span>Start</span>
+                <span>{t('Start')}</span>
               </>
             )}
           </button>
@@ -507,7 +509,10 @@ export function LiveMode(props: { onClose: () => void }) {
 
         {/* Stage */}
         <div className="flex-1 min-h-0 flex items-center justify-center">
-          <div className="relative aspect-video w-full max-h-full bg-black rounded-2xl overflow-hidden flex items-center justify-center border border-white/[0.06] shadow-panel">
+          <div
+            className="relative aspect-video w-full max-h-full bg-black rounded-2xl overflow-hidden flex items-center justify-center border border-white/[0.06] shadow-panel"
+            dir="ltr"
+          >
             <video
               ref={videoRef}
               playsInline
@@ -522,9 +527,9 @@ export function LiveMode(props: { onClose: () => void }) {
             {!isRunning && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-ink-950/60 p-6 text-center backdrop-blur-sm">
                 <Video size={36} strokeWidth={1.5} className="text-slate-600" />
-                <div className="text-sm font-medium text-slate-300">Camera is stopped</div>
+                <div className="text-sm font-medium text-slate-300">{t('Camera is stopped')}</div>
                 <div className="text-xs text-slate-500">
-                  Press Start to begin live webcam streaming and object detection
+                  {t('Press Start to begin live webcam streaming and object detection')}
                 </div>
               </div>
             )}
@@ -535,30 +540,30 @@ export function LiveMode(props: { onClose: () => void }) {
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/[0.06] pt-3 text-xs text-slate-400">
           <div className="flex flex-wrap items-center gap-6">
             <div className="flex items-center gap-1.5">
-              <span className="text-slate-500">Latency:</span>
+              <span className="text-slate-500">{t('Latency:')}</span>
               <span className="num font-semibold text-slate-200">
                 {serverMs !== null ? `${Math.round(serverMs)} ms` : '—'}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-slate-500">Effective rate:</span>
+              <span className="text-slate-500">{t('Effective rate:')}</span>
               <span className="num font-semibold text-slate-200">
                 {effectiveFps > 0 ? `${effectiveFps.toFixed(1)} fps` : '—'}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-slate-500">Dropped:</span>
+              <span className="text-slate-500">{t('Dropped:')}</span>
               <span className="num font-semibold text-slate-200">{droppedCount}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-slate-500">Detections:</span>
+              <span className="text-slate-500">{t('Detections:')}</span>
               <span className="num font-semibold text-slate-200">{detectionCount}</span>
             </div>
           </div>
 
           {queryEn && queryEn.trim().toLowerCase() !== query.trim().toLowerCase() && (
             <div className="flex items-center gap-1 text-slate-400">
-              <span>searching as:</span>
+              <span>{t('searching as:')}</span>
               <span className="font-medium text-signal">"{queryEn}"</span>
             </div>
           )}

@@ -1,6 +1,8 @@
 import { CheckCircle2, Download, Play } from 'lucide-react';
+import { useT } from '../i18n';
 
 export function RenderResultBox(props: { title: string; outputUrl: string; onView: () => void }) {
+  const t = useT();
   return (
     <div className="animate-fade-up space-y-3 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] p-3">
       <div className="flex items-center gap-2 text-sm text-emerald-300">
@@ -10,11 +12,11 @@ export function RenderResultBox(props: { title: string; outputUrl: string; onVie
       <div className="grid grid-cols-2 gap-2">
         <button type="button" className="btn-ghost" onClick={props.onView}>
           <Play size={14} strokeWidth={1.75} />
-          View
+          {t('View')}
         </button>
         <a className="btn-primary" href={props.outputUrl} download>
           <Download size={14} strokeWidth={1.75} />
-          Download
+          {t('Download')}
         </a>
       </div>
     </div>

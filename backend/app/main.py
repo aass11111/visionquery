@@ -42,6 +42,7 @@ def resume_jobs() -> None:
     # Only unfinished jobs; old videos are indexed lazily when opened (see get_index), so a restart never
     # floods the GPU queue with work nobody asked for.
     jobs.resume_unfinished()
+    library.sweep()  # finish deletions that a locked file or a restart interrupted
 
 
 def _ensure_index(video_id: str) -> None:

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { ImagePlus, Loader2 } from 'lucide-react';
+import { useT } from '../i18n';
 import { cn } from '../lib/format';
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -11,6 +12,7 @@ export function ImageSearchButton(props: {
   indexReady: boolean;
 }) {
   const { onImage, disabled = false, loading = false, indexReady } = props;
+  const t = useT();
 
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -39,12 +41,12 @@ export function ImageSearchButton(props: {
   const processFile = useCallback(
     (file: File) => {
       if (!file.type.startsWith('image/')) {
-        setError('Please select an image file');
+        setError(t('Please select an image file'));
         return;
       }
 
       if (file.size > MAX_FILE_SIZE_BYTES) {
-        setError('Image must be 10 MB or less');
+        setError(t('Image must be 10 MB or less'));
         return;
       }
 
@@ -112,8 +114,8 @@ export function ImageSearchButton(props: {
   const isButtonDisabled = disabled || loading || !indexReady;
 
   const buttonTitle = !indexReady
-    ? 'Building the video index… image search will be ready in a moment'
-    : 'Search the video with a photo (uses the CLIP index)';
+    ? t('Building the video index… image search will be ready in a moment')
+    : t('Search the video with a photo (uses the CLIP index)');
 
   return (
     <div className="relative inline-flex items-center">
@@ -131,7 +133,7 @@ export function ImageSearchButton(props: {
         type="button"
         disabled={isButtonDisabled}
         title={buttonTitle}
-        aria-label="Search the video with a photo (uses the CLIP index)"
+        aria-label={t('Search the video with a photo (uses the CLIP index)')}
         onClick={handleClick}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
@@ -147,19 +149,19 @@ export function ImageSearchButton(props: {
         ) : thumbnailUrl ? (
           <img
             src={thumbnailUrl}
-            alt="Search reference"
+            alt={t('Search reference')}
             className="h-7 w-7 shrink-0 rounded-lg object-cover"
           />
         ) : (
           <ImagePlus size={16} strokeWidth={1.75} />
         )}
-        <span className="hidden sm:inline">Image</span>
+        <span className="hidden sm:inline">{t('Image')}</span>
       </button>
 
       {error && (
         <span
           role="alert"
-          className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg border border-rose-500/20 bg-ink-900/95 px-2.5 py-1 text-[11px] font-medium text-rose-400 shadow-panel backdrop-blur-md animate-fade-up"
+          className="pointer-events-none absolute start-1/2 top-full z-20 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg border border-rose-500/20 bg-ink-900/95 px-2.5 py-1 text-[11px] font-medium text-rose-400 shadow-panel backdrop-blur-md animate-fade-up"
         >
           {error}
         </span>

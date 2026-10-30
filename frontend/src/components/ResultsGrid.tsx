@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ImageOff, Search } from 'lucide-react';
+import { useT } from '../i18n';
 import { cn, formatPercent, formatTime } from '../lib/format';
 import { boxToPercent, sameBox } from '../lib/geometry';
 import type { FrameHit, Selection, VideoMeta } from '../types';
@@ -28,6 +29,7 @@ function scoreBg(s: number): string {
 }
 
 export function ResultsGrid({ hits, meta, query, loading, selected, onSelect }: ResultsGridProps) {
+  const t = useT();
   const [sort, setSort] = useState<Sort>('best');
   const [limit, setLimit] = useState(PAGE);
 
@@ -41,20 +43,20 @@ export function ResultsGrid({ hits, meta, query, loading, selected, onSelect }: 
     <div className="panel">
       <div className="panel-header">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="label">Results</span>
+          <span className="label">{t('Results')}</span>
           {query && (
             <span className="chip min-w-0">
               <Search size={12} strokeWidth={1.75} />
               <span className="truncate">“{query}”</span>
             </span>
           )}
-          {hits.length > 0 && <span className="num text-xs text-slate-500">{hits.length} frames</span>}
+          {hits.length > 0 && <span className="num text-xs text-slate-500">{t('{n} frames', { n: hits.length })}</span>}
         </div>
         <div className="flex rounded-lg bg-ink-850 p-0.5">
           {(
             [
-              ['best', 'Best match'],
-              ['time', 'Chronological'],
+              ['best', t('Best match')],
+              ['time', t('Chronological')],
             ] as const
           ).map(([k, label]) => (
             <button
@@ -84,9 +86,9 @@ export function ResultsGrid({ hits, meta, query, loading, selected, onSelect }: 
       ) : hits.length === 0 ? (
         <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
           <ImageOff size={28} strokeWidth={1.5} className="text-slate-600" />
-          <div className="text-sm font-medium text-slate-300">No matches yet</div>
+          <div className="text-sm font-medium text-slate-300">{t('No matches yet')}</div>
           <div className="max-w-sm text-xs text-slate-500">
-            Try a different description or lower the frame step for denser scanning.
+            {t('Try a different description or lower the frame step for denser scanning.')}
           </div>
         </div>
       ) : (
@@ -103,15 +105,15 @@ export function ResultsGrid({ hits, meta, query, loading, selected, onSelect }: 
                   onClick={() => onSelect({ hit, detection: top })}
                   onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect({ hit, detection: top })}
                   className={cn(
-                    'group animate-fade-up cursor-pointer overflow-hidden rounded-xl border bg-ink-850 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
+                    'group animate-fade-up cursor-pointer overflow-hidden rounded-xl border bg-ink-850 text-start transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60',
                     isSel ? 'border-signal/60 shadow-glow-signal' : 'border-white/[0.06] hover:border-white/[0.14]',
                   )}
                 >
-                  <div className="relative aspect-video overflow-hidden bg-black">
+                  <div className="relative aspect-video overflow-hidden bg-black" dir="ltr">
                     <img
                       src={hit.thumbnail_url}
                       loading="lazy"
-                      alt={`Frame ${hit.frame_index}`}
+                      alt={t('Frame {n}', { n: hit.frame_index })}
                       className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
                     />
                     {hit.detections.map((d, i) => {
@@ -149,7 +151,7 @@ export function ResultsGrid({ hits, meta, query, loading, selected, onSelect }: 
                     </div>
                     <div className="flex justify-between text-[11px] text-slate-500">
                       <span>
-                        {hit.detections.length} object{hit.detections.length > 1 ? 's' : ''}
+                        {hit.detections.length === 1 ? t('1 object') : t('{n} objects', { n: hit.detections.length })}
                       </span>
                       {top.clip_score !== null && <span className="num">CLIP {formatPercent(top.clip_score)}</span>}
                     </div>
@@ -161,7 +163,7 @@ export function ResultsGrid({ hits, meta, query, loading, selected, onSelect }: 
           {sorted.length > limit && (
             <div className="flex justify-center pb-4">
               <button className="btn-ghost" onClick={() => setLimit((l) => l + PAGE)}>
-                Show more ({sorted.length - limit} left)
+                {t('Show more ({n} left)', { n: sorted.length - limit })}
               </button>
             </div>
           )}

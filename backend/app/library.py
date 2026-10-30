@@ -2,15 +2,24 @@
 
 Outputs are linked to their source video through the saved job files (jobs/<job_id>.json holds the video_id,
 outputs/<job_id>.mp4 is the render), so deleting a video also removes its renders and checkpoints.
+
+On Windows a file that is still being streamed to the browser cannot be deleted, so deletion first removes
+meta.json (the video disappears from the library at once) and then removes the files in the background,
+retrying until the player lets go. Folders left half-deleted (no meta.json) are swept at startup.
 """
 import json
+import logging
 import shutil
+import threading
+import time
 from pathlib import Path
 
 from . import index, video
 from .config import settings
 from .jobs import jobs
 from .schemas import Library, LibraryItem
+
+log = logging.getLogger("visionquery.library")
 
 
 def _size(p: Path) -> int:
@@ -56,13 +65,43 @@ def listing() -> Library:
     return Library(path=str(settings.data_dir.resolve()), total_bytes=total, videos=items)
 
 
+def _remove(path: Path, attempts: int = 60, wait: float = 2.0) -> None:
+    """Delete a file or folder, retrying while Windows reports it in use (e.g. still streaming)."""
+    for _ in range(attempts):
+        try:
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink(missing_ok=True)
+            return
+        except FileNotFoundError:
+            return
+        except PermissionError:
+            time.sleep(wait)
+    log.warning("could not delete %s (still in use)", path)
+
+
+def _remove_later(*paths: Path) -> None:
+    threading.Thread(target=lambda: [_remove(p) for p in paths], daemon=True).start()
+
+
 def delete(video_id: str) -> None:
     """Remove a video, its frames/index, its rendered edits and its job records."""
     if _busy(video_id):
         raise RuntimeError("A job is still running on this video")
+    d = video.video_dir(video_id)
+    (d / "meta.json").unlink(missing_ok=True)  # gone from the library and the API right away
+    later: list[Path] = [d]
     for job_id in _jobs_of(video_id):
-        (settings.outputs_dir / f"{job_id}.mp4").unlink(missing_ok=True)
-        (settings.jobs_dir / f"{job_id}.json").unlink(missing_ok=True)
-        shutil.rmtree(settings.jobs_dir / job_id, ignore_errors=True)
         jobs.jobs.pop(job_id, None)
-    shutil.rmtree(video.video_dir(video_id), ignore_errors=False)
+        later += [settings.outputs_dir / f"{job_id}.mp4", settings.jobs_dir / f"{job_id}.json",
+                  settings.jobs_dir / job_id]
+    _remove_later(*later)
+
+
+def sweep() -> int:
+    """Finish deletions interrupted by a locked file or a restart: folders without meta.json."""
+    leftovers = [d for d in settings.videos_dir.iterdir() if d.is_dir() and not (d / "meta.json").exists()]
+    if leftovers:
+        _remove_later(*leftovers)
+    return len(leftovers)

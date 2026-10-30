@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FolderOpen, HardDrive, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
 import { Library, LibraryItem, VideoMeta } from '../types';
+import { useT } from '../i18n';
 import { cn, formatTime } from '../lib/format';
 
 interface LibraryGridProps {
@@ -18,6 +19,7 @@ function formatBytes(bytes: number): string {
 }
 
 export function LibraryGrid({ library, error, onOpen, onDelete, deletingId }: LibraryGridProps) {
+  const t = useT();
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -45,10 +47,10 @@ export function LibraryGrid({ library, error, onOpen, onDelete, deletingId }: Li
       <div className="mb-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <FolderOpen size={16} className="text-slate-400" />
-          <span className="label">Your library</span>
+          <span className="label">{t('Your library')}</span>
           {library && (
             <span className="num text-xs text-slate-500">
-              {library.videos.length} videos · {formatBytes(library.total_bytes)}
+              {t('{n} videos', { n: library.videos.length })} · {formatBytes(library.total_bytes)}
             </span>
           )}
         </div>
@@ -83,7 +85,7 @@ export function LibraryGrid({ library, error, onOpen, onDelete, deletingId }: Li
 
       {library && !error && library.videos.length === 0 && (
         <div className="py-12 text-center text-sm text-slate-500">
-          No videos yet — upload one above. They are kept on this PC, outside the project folder.
+          {t('No videos yet — upload one above. They are kept on this PC, outside the project folder.')}
         </div>
       )}
 
@@ -116,14 +118,14 @@ export function LibraryGrid({ library, error, onOpen, onDelete, deletingId }: Li
                   </span>
                   {item.index_status === 'ready' && (
                     <span className="chip absolute top-2 left-2 bg-black/50 backdrop-blur text-[10px] text-emerald-400">
-                      ⚡ indexed
+                      ⚡ {t('indexed')}
                     </span>
                   )}
                   <button
                     type="button"
                     disabled={item.busy || isDeleting}
-                    title={item.busy ? 'A job is running on this video' : undefined}
-                    aria-label="Delete video"
+                    title={item.busy ? t('A job is running on this video') : undefined}
+                    aria-label={t('Delete video')}
                     onClick={(e) => handleDeleteClick(e, item.meta.video_id)}
                     className={cn(
                       'btn-icon absolute top-2 right-2 h-7 focus:opacity-100',
@@ -136,7 +138,7 @@ export function LibraryGrid({ library, error, onOpen, onDelete, deletingId }: Li
                     {isDeleting ? (
                       <Loader2 size={14} className="animate-spin" />
                     ) : isConfirming ? (
-                      'Delete?'
+                      t('Delete?')
                     ) : (
                       <Trash2 size={14} />
                     )}
@@ -149,7 +151,7 @@ export function LibraryGrid({ library, error, onOpen, onDelete, deletingId }: Li
                   </div>
                   <div className="num truncate text-[11px] text-slate-500">
                     {item.meta.width}×{item.meta.height} · {dateStr}
-                    {item.outputs > 0 && ` · ${item.outputs} edits`}
+                    {item.outputs > 0 && ` · ${t('{n} edits', { n: item.outputs })}`}
                   </div>
                 </div>
               </div>

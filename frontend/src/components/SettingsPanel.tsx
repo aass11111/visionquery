@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Cpu, Gauge, Rocket, RotateCcw, ShieldCheck, Settings2, X, Zap } from 'lucide-react';
+import { useT } from '../i18n';
 import { cn } from '../lib/format';
 import { DEFAULT_SETTINGS, type AppSettings } from '../types';
 
@@ -11,24 +12,25 @@ interface SettingsPanelProps {
   device: 'cuda' | 'cpu' | null;
 }
 
-const PRECISION = [
+const PRECISION = (t: (text: string, vars?: Record<string, string | number>) => string) => [
   {
     half: false,
-    title: 'FP32 · Full',
-    badge: 'Recommended',
+    title: t('FP32 · Full'),
+    badge: t('Recommended'),
     icon: ShieldCheck,
-    text: 'Full 32-bit precision. The most stable choice, works on every GPU and on CPU.',
+    text: t('Full 32-bit precision. The most stable choice, works on every GPU and on CPU.'),
   },
   {
     half: true,
-    title: 'FP16 · Half',
-    badge: 'Faster',
+    title: t('FP16 · Half'),
+    badge: t('Faster'),
     icon: Zap,
-    text: 'Half precision: faster and about half the VRAM for the detector. GPU only.',
+    text: t('Half precision: faster and about half the VRAM for the detector. GPU only.'),
   },
 ];
 
 export function SettingsPanel({ open, onClose, settings, onChange, device }: SettingsPanelProps) {
+  const t = useT();
   const gpu = device === 'cuda';
   const confPct = ((settings.conf - 0.05) / (0.6 - 0.05)) * 100;
 
@@ -43,19 +45,19 @@ export function SettingsPanel({ open, onClose, settings, onChange, device }: Set
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <button aria-label="Close settings" className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <button aria-label={t('Close settings')} className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <aside
         role="dialog"
         aria-modal="true"
         aria-labelledby="vq-settings-title"
-        className="relative flex h-full w-full max-w-[400px] flex-col border-l border-white/[0.08] bg-ink-900 shadow-panel animate-fade-up"
+        className="relative flex h-full w-full max-w-[400px] flex-col border-s border-white/[0.08] bg-ink-900 shadow-panel animate-fade-up"
       >
         <div className="panel-header h-14">
           <h2 id="vq-settings-title" className="flex items-center gap-2 text-sm font-semibold">
             <Settings2 size={16} strokeWidth={1.75} className="text-accent-soft" />
-            Settings
+            {t('Settings')}
           </h2>
-          <button className="btn-icon h-8 w-8" onClick={onClose} aria-label="Close" title="Close (Esc)">
+          <button className="btn-icon h-8 w-8" onClick={onClose} aria-label={t('Close')} title={t('Close (Esc)')}>
             <X size={16} />
           </button>
         </div>
@@ -64,17 +66,17 @@ export function SettingsPanel({ open, onClose, settings, onChange, device }: Set
           <section className="space-y-3">
             <div>
               <div className="label flex items-center gap-2">
-                <Rocket size={13} strokeWidth={1.75} /> Search mode
+                <Rocket size={13} strokeWidth={1.75} /> {t('Search mode')}
               </div>
               <p className="mt-1 text-xs text-slate-500">
-                Instant uses the CLIP index built after upload and checks only the most promising frames.
+                {t('Instant uses the CLIP index built after upload and checks only the most promising frames.')}
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Search mode">
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('Search mode')}>
               {(
                 [
-                  ['instant', 'Instant', 'Index ranks frames · ~10× less GPU work'],
-                  ['full', 'Full scan', 'Every N frames · finds rare moments'],
+                  ['instant', t('Instant'), t('Index ranks frames · ~10× less GPU work')],
+                  ['full', t('Full scan'), t('Every N frames · finds rare moments')],
                 ] as const
               ).map(([mode, title, text]) => (
                 <button
@@ -83,7 +85,7 @@ export function SettingsPanel({ open, onClose, settings, onChange, device }: Set
                   aria-checked={settings.searchMode === mode}
                   onClick={() => onChange({ ...settings, searchMode: mode })}
                   className={cn(
-                    'rounded-xl border p-3 text-left transition',
+                    'rounded-xl border p-3 text-start transition',
                     settings.searchMode === mode
                       ? 'border-accent/50 bg-accent/[0.08] shadow-glow'
                       : 'border-white/[0.06] bg-ink-850 hover:border-white/[0.14]',
@@ -99,12 +101,12 @@ export function SettingsPanel({ open, onClose, settings, onChange, device }: Set
           <section className="space-y-3">
             <div>
               <div className="label flex items-center gap-2">
-                <Cpu size={13} strokeWidth={1.75} /> Detector precision
+                <Cpu size={13} strokeWidth={1.75} /> {t('Detector precision')}
               </div>
-              <p className="mt-1 text-xs text-slate-500">How YOLO-World does its maths on the GPU. Applies to search and recolor.</p>
+              <p className="mt-1 text-xs text-slate-500">{t('How YOLO-World does its maths on the GPU. Applies to search and recolor.')}</p>
             </div>
-            <div className="space-y-2" role="radiogroup" aria-label="Detector precision">
-              {PRECISION.map((p) => {
+            <div className="space-y-2" role="radiogroup" aria-label={t('Detector precision')}>
+              {PRECISION(t).map((p) => {
                 const active = settings.yoloHalf === p.half;
                 const locked = p.half && !gpu;
                 const Icon = p.icon;
@@ -116,7 +118,7 @@ export function SettingsPanel({ open, onClose, settings, onChange, device }: Set
                     disabled={locked}
                     onClick={() => onChange({ ...settings, yoloHalf: p.half })}
                     className={cn(
-                      'flex w-full items-start gap-3 rounded-xl border p-3 text-left transition',
+                      'flex w-full items-start gap-3 rounded-xl border p-3 text-start transition',
                       active ? 'border-accent/50 bg-accent/[0.08] shadow-glow' : 'border-white/[0.06] bg-ink-850 hover:border-white/[0.14]',
                       locked && 'cursor-not-allowed opacity-40',
                     )}
@@ -136,7 +138,7 @@ export function SettingsPanel({ open, onClose, settings, onChange, device }: Set
                         <span className="chip px-2 py-0 text-[10px]">{p.badge}</span>
                       </span>
                       <span className="mt-1 block text-xs leading-relaxed text-slate-400">
-                        {locked ? 'Needs an NVIDIA GPU — this server is running on CPU.' : p.text}
+                        {locked ? t('Needs an NVIDIA GPU — this server is running on CPU.') : p.text}
                       </span>
                     </span>
                   </button>
@@ -148,7 +150,7 @@ export function SettingsPanel({ open, onClose, settings, onChange, device }: Set
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="label flex items-center gap-2">
-                <Gauge size={13} strokeWidth={1.75} /> Detection confidence
+                <Gauge size={13} strokeWidth={1.75} /> {t('Detection confidence')}
               </div>
               <span className="num text-sm text-slate-200">{settings.conf.toFixed(2)}</span>
             </div>
@@ -160,24 +162,25 @@ export function SettingsPanel({ open, onClose, settings, onChange, device }: Set
               step={0.01}
               value={settings.conf}
               onChange={(e) => onChange({ ...settings, conf: Number(e.target.value) })}
-              aria-label="Detection confidence threshold"
+              aria-label={t('Detection confidence threshold')}
               style={{ background: `linear-gradient(90deg, #7c5cff 0%, #22d3ee ${confPct}%, #222636 ${confPct}%)` }}
             />
             <div className="flex justify-between text-[11px] text-slate-500">
-              <span>More matches</span>
-              <span>Fewer, surer matches</span>
+              <span>{t('More matches')}</span>
+              <span>{t('Fewer, surer matches')}</span>
             </div>
             <p className="text-xs text-slate-500">
-              The minimum YOLO-World score a box needs to count. Lower finds small or partly hidden objects but adds false
-              matches.
+              {t(
+                'The minimum YOLO-World score a box needs to count. Lower finds small or partly hidden objects but adds false matches.',
+              )}
             </p>
           </section>
         </div>
 
         <div className="flex items-center justify-between border-t border-white/[0.06] p-4">
-          <span className="text-[11px] text-slate-500">Saved in this browser · used on the next search</span>
+          <span className="text-[11px] text-slate-500">{t('Saved in this browser · used on the next search')}</span>
           <button className="btn-ghost h-8 px-3 text-xs" onClick={() => onChange(DEFAULT_SETTINGS)}>
-            <RotateCcw size={13} strokeWidth={1.75} /> Defaults
+            <RotateCcw size={13} strokeWidth={1.75} /> {t('Defaults')}
           </button>
         </div>
       </aside>

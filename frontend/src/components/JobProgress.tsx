@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Clock, Loader2, X, XCircle } from 'lucide-react';
 import type { Job, JobStatus } from '../types';
 import { cn, formatPercent } from '../lib/format';
+import { useT } from '../i18n';
 
 export interface JobProgressProps {
   job: Job | null;
@@ -56,6 +57,7 @@ const STATUS_CONFIG: Record<
 
 export function JobProgress(props: JobProgressProps) {
   const { job, title, onDismiss } = props;
+  const t = useT();
 
   const startTimeRef = useRef<number | null>(null);
   const currentJobIdRef = useRef<string | null>(null);
@@ -104,7 +106,7 @@ export function JobProgress(props: JobProgressProps) {
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-6 right-6 z-50 w-[360px] panel p-4 animate-fade-up"
+      className="fixed bottom-6 end-6 z-50 w-[360px] panel p-4 animate-fade-up"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
@@ -116,15 +118,15 @@ export function JobProgress(props: JobProgressProps) {
               statusConfig.pillClass
             )}
           >
-            {statusConfig.label}
+            {t(statusConfig.label)}
           </span>
         </div>
         <button
           type="button"
           onClick={onDismiss}
           className="btn-icon h-7 w-7 shrink-0 text-slate-400 hover:text-slate-200"
-          aria-label="Dismiss"
-          title="Dismiss"
+          aria-label={t('Dismiss')}
+          title={t('Dismiss')}
         >
           <X size={16} strokeWidth={1.75} />
         </button>
@@ -146,7 +148,7 @@ export function JobProgress(props: JobProgressProps) {
       )}
 
       <div className="mt-3 flex items-center gap-3">
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-700">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-700" dir="ltr">
           <div
             className={cn(
               'h-full rounded-full transition-[width] duration-300',
@@ -166,7 +168,7 @@ export function JobProgress(props: JobProgressProps) {
 
       <div className="mt-2 flex items-center justify-between">
         <span className="num text-[11px] text-slate-500">
-          {formatElapsed(elapsed)} elapsed
+          {formatElapsed(elapsed)} {t('elapsed')}
         </span>
       </div>
     </div>

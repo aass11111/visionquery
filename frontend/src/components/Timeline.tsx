@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { useT } from '../i18n';
 import { cn, formatPercent, formatTime } from '../lib/format';
 import { nearestHit } from '../lib/geometry';
 import type { FrameHit, VideoMeta } from '../types';
@@ -21,6 +22,7 @@ function scoreColor(s: number): string {
 }
 
 export function Timeline({ meta, hits, frameStep, currentTime, selectedFrame, onSeek }: TimelineProps) {
+  const t = useT();
   const trackRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<{ x: number; time: number } | null>(null);
   const duration = Math.max(meta.duration, 0.001);
@@ -55,14 +57,14 @@ export function Timeline({ meta, hits, frameStep, currentTime, selectedFrame, on
   return (
     <div className="panel">
       <div className="panel-header">
-        <span className="label">Timeline</span>
+        <span className="label">{t('Timeline')}</span>
         <span className="num text-xs text-slate-400">
-          {hits.length} matches · scanned every {frameStep} frames
+          {t('{n} matches', { n: hits.length })} · {t('scanned every {n} frames', { n: frameStep })}
         </span>
       </div>
 
       <div className="px-4 py-3">
-        <div className="relative h-5">
+        <div className="relative h-5" dir="ltr">
           {ticks.map((t) => (
             <span
               key={t}
@@ -76,6 +78,7 @@ export function Timeline({ meta, hits, frameStep, currentTime, selectedFrame, on
 
         <div
           ref={trackRef}
+          dir="ltr"
           className="relative h-14 cursor-crosshair touch-none overflow-hidden rounded-xl border border-white/[0.06] bg-ink-850"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -91,7 +94,7 @@ export function Timeline({ meta, hits, frameStep, currentTime, selectedFrame, on
 
           {hits.length === 0 && (
             <div className="absolute inset-0 grid place-items-center text-xs text-slate-500">
-              Run a search to map matches onto the timeline
+              {t('Run a search to map matches onto the timeline')}
             </div>
           )}
 
@@ -131,7 +134,7 @@ export function Timeline({ meta, hits, frameStep, currentTime, selectedFrame, on
               style={{ left: hover.x }}
             >
               <span className="num">{formatTime(hover.time)}</span>
-              {hoverHit && <span className="ml-2 text-signal-soft">match {formatPercent(hoverHit.best_score)}</span>}
+              {hoverHit && <span className="ms-2 text-signal-soft">{t('match')} {formatPercent(hoverHit.best_score)}</span>}
             </div>
           )}
         </div>

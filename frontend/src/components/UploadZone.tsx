@@ -7,6 +7,7 @@ import React, {
   type KeyboardEvent,
 } from 'react';
 import { Sparkles, UploadCloud, AlertCircle, Search, Scan, Palette } from 'lucide-react';
+import { useT } from '../i18n';
 import { cn, formatPercent } from '../lib/format';
 
 export interface UploadZoneProps {
@@ -16,6 +17,7 @@ export interface UploadZoneProps {
 }
 
 export function UploadZone({ onFile, progress, error }: UploadZoneProps) {
+  const t = useT();
   const [isDragging, setIsDragging] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -30,7 +32,7 @@ export function UploadZone({ onFile, progress, error }: UploadZoneProps) {
         /\.(mp4|mov|webm|mkv|avi)$/i.test(file.name);
 
       if (!isVideo) {
-        setLocalError('Please choose a valid video file (MP4, MOV, or WEBM).');
+        setLocalError(t('Please choose a valid video file (MP4, MOV, or WEBM).'));
         return;
       }
 
@@ -105,16 +107,16 @@ export function UploadZone({ onFile, progress, error }: UploadZoneProps) {
 
       {/* Hero Headline */}
       <h1 className="text-4xl font-semibold tracking-tight text-slate-100 md:text-5xl">
-        Search video with words.
+        {t('Search video with words.')}
         <br />
         <span className="bg-accent-gradient bg-clip-text text-transparent">
-          Recolor anything you find.
+          {t('Recolor anything you find.')}
         </span>
       </h1>
 
       {/* Subtitle */}
       <p className="mt-4 max-w-xl text-base text-slate-400 md:text-lg">
-        Pinpoint objects and actions across footage with zero-shot AI, then track and recolor them with studio precision.
+        {t('Pinpoint objects and actions across footage with zero-shot AI, then track and recolor them with studio precision.')}
       </p>
 
       {/* Drop Zone */}
@@ -148,7 +150,7 @@ export function UploadZone({ onFile, progress, error }: UploadZoneProps) {
         </div>
 
         <span className="text-base font-medium text-slate-100">
-          Drop a video here or browse
+          {t('Drop a video here or browse')}
         </span>
 
         {isUploading ? (
@@ -163,12 +165,12 @@ export function UploadZone({ onFile, progress, error }: UploadZoneProps) {
               <span className="num font-medium text-slate-200">
                 {formatPercent(progress)}
               </span>
-              <span>Uploading…</span>
+              <span>{t('Uploading…')}</span>
             </div>
           </div>
         ) : (
           <p className="num mt-1 text-xs text-slate-500">
-            MP4, MOV, WEBM · up to 2 GB
+            {t('MP4, MOV, WEBM · up to 2 GB')}
           </p>
         )}
 
@@ -182,39 +184,39 @@ export function UploadZone({ onFile, progress, error }: UploadZoneProps) {
 
       {/* Feature Cards */}
       <div className="mt-10 grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="panel flex flex-col items-start p-4 text-left">
+        <div className="panel flex flex-col items-start p-4 text-start">
           <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.03] text-accent">
             <Search size={16} strokeWidth={1.75} />
           </div>
           <h3 className="text-sm font-semibold text-slate-200">
-            Natural-language search
+            {t('Natural-language search')}
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-slate-400">
-            Find arbitrary objects and moments across footage using open-vocabulary prompts.
+            {t('Find arbitrary objects and moments across footage using open-vocabulary prompts.')}
           </p>
         </div>
 
-        <div className="panel flex flex-col items-start p-4 text-left">
+        <div className="panel flex flex-col items-start p-4 text-start">
           <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.03] text-signal">
             <Scan size={16} strokeWidth={1.75} />
           </div>
           <h3 className="text-sm font-semibold text-slate-200">
-            Segment &amp; track
+            {t('Segment & track')}
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-slate-400">
-            Extract pixel-accurate masks with SAM 2 that follow targets through motion.
+            {t('Extract pixel-accurate masks with SAM 2 that follow targets through motion.')}
           </p>
         </div>
 
-        <div className="panel flex flex-col items-start p-4 text-left">
+        <div className="panel flex flex-col items-start p-4 text-start">
           <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.03] text-accent">
             <Palette size={16} strokeWidth={1.75} />
           </div>
           <h3 className="text-sm font-semibold text-slate-200">
-            Realistic recoloring
+            {t('Realistic recoloring')}
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-slate-400">
-            Restyle target elements cleanly while preserving fine surface textures and lighting.
+            {t('Restyle target elements cleanly while preserving fine surface textures and lighting.')}
           </p>
         </div>
       </div>

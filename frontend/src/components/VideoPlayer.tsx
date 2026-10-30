@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Maximize, Pause, Play, Volume2, VolumeX } from 'lucide-react';
+import { useT } from '../i18n';
 import { formatTime } from '../lib/format';
 import { fitContain, nearestHit, sameBox } from '../lib/geometry';
 import type { Detection, FrameHit, Selection, VideoMeta } from '../types';
@@ -37,6 +38,7 @@ export function VideoPlayer({
   badge,
   showOverlays = true,
 }: VideoPlayerProps) {
+  const t = useT();
   const panelRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -245,7 +247,7 @@ export function VideoPlayer({
       onKeyDown={onKeyDown}
       className="panel overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
     >
-      <div ref={stageRef} className="relative aspect-video bg-black">
+      <div ref={stageRef} className="relative aspect-video bg-black" dir="ltr">
         <video
           ref={videoRef}
           src={src}
@@ -272,62 +274,83 @@ export function VideoPlayer({
           onClick={onClick}
         />
         {badge && (
-          <span className="chip pointer-events-none absolute left-3 top-3 border-white/10 bg-black/50 backdrop-blur">
+          <span className="chip pointer-events-none absolute start-3 top-3 border-white/10 bg-black/50 backdrop-blur">
             {badge}
           </span>
         )}
         {!playing && time === 0 && !selected && (
           <button
             onClick={toggle}
-            aria-label="Play"
-            className="absolute left-1/2 top-1/2 grid h-14 w-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white backdrop-blur-md transition hover:scale-105 hover:bg-white/20"
+            aria-label={t('Play')}
+            className="absolute start-1/2 top-1/2 grid h-14 w-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white backdrop-blur-md transition hover:scale-105 hover:bg-white/20"
           >
-            <Play size={22} strokeWidth={1.75} className="ml-0.5" />
+            <Play size={22} strokeWidth={1.75} className="ms-0.5" />
           </button>
         )}
       </div>
 
       <div className="flex items-center gap-1.5 border-t border-white/[0.06] px-3 py-2">
-        <button className="btn-icon" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'} title={playing ? 'Pause (Space)' : 'Play (Space)'}>
+        <button
+          className="btn-icon"
+          onClick={toggle}
+          aria-label={playing ? t('Pause') : t('Play')}
+          title={playing ? t('Pause (Space)') : t('Play (Space)')}
+        >
           {playing ? <Pause {...ICON} /> : <Play {...ICON} />}
         </button>
-        <button className="btn-icon" onClick={() => step(-1)} aria-label="Previous frame" title="Previous frame (←)">
+        <button
+          className="btn-icon"
+          onClick={() => step(-1)}
+          aria-label={t('Previous frame')}
+          title={t('Previous frame (←)')}
+        >
           <ChevronLeft {...ICON} />
         </button>
-        <button className="btn-icon" onClick={() => step(1)} aria-label="Next frame" title="Next frame (→)">
+        <button
+          className="btn-icon"
+          onClick={() => step(1)}
+          aria-label={t('Next frame')}
+          title={t('Next frame (→)')}
+        >
           <ChevronRight {...ICON} />
         </button>
-        <span className="num shrink-0 whitespace-nowrap px-1 text-xs text-slate-400">
+        <span className="num shrink-0 whitespace-nowrap px-1 text-xs text-slate-400" dir="ltr">
           <span className="text-slate-200">{formatTime(time)}</span> / {formatTime(meta.duration)}
         </span>
         <input
           type="range"
+          dir="ltr"
           className="range mx-2 flex-1"
           min={0}
           max={meta.duration}
           step="any"
           value={time}
-          aria-label="Seek"
+          aria-label={t('Seek')}
           onChange={(e) => {
             if (videoRef.current) videoRef.current.currentTime = Number(e.target.value);
           }}
           style={{ background: `linear-gradient(90deg, #7c5cff 0%, #22d3ee ${progress}%, #222636 ${progress}%)` }}
         />
-        <span className="num hidden w-16 text-right text-[11px] text-slate-500 sm:block">
+        <span className="num hidden w-16 text-end text-[11px] text-slate-500 sm:block">
           f {Math.round(time * meta.fps)}
         </span>
-        <button className="btn-icon" onClick={() => setMuted((m) => !m)} aria-label={muted ? 'Unmute' : 'Mute'} title={muted ? 'Unmute' : 'Mute'}>
+        <button
+          className="btn-icon"
+          onClick={() => setMuted((m) => !m)}
+          aria-label={muted ? t('Unmute') : t('Mute')}
+          title={muted ? t('Unmute') : t('Mute')}
+        >
           {muted ? <VolumeX {...ICON} /> : <Volume2 {...ICON} />}
         </button>
         <button
           className="btn num h-9 w-12 px-0 text-xs text-slate-300 hover:bg-white/[0.06]"
           onClick={() => setRate((r) => RATES[(RATES.indexOf(r) + 1) % RATES.length])}
-          aria-label="Playback speed"
-          title="Playback speed"
+          aria-label={t('Playback speed')}
+          title={t('Playback speed')}
         >
           {rate}×
         </button>
-        <button className="btn-icon" onClick={fullscreen} aria-label="Fullscreen" title="Fullscreen">
+        <button className="btn-icon" onClick={fullscreen} aria-label={t('Fullscreen')} title={t('Fullscreen')}>
           <Maximize {...ICON} />
         </button>
       </div>

@@ -18,6 +18,7 @@ import { UploadZone } from './components/UploadZone';
 import { VideoPlayer } from './components/VideoPlayer';
 import { DEMO, demoHealth, demoSearch, demoSuggestions, demoVideo } from './demo';
 import { cn } from './lib/format';
+import { useT } from './i18n';
 import {
   DEFAULT_SETTINGS,
   type AppSettings,
@@ -61,6 +62,7 @@ function store(key: string, value: string | null) {
 }
 
 export default function App() {
+  const t = useT();
   const [health, setHealth] = useState<Health | null>(null);
   const [video, setVideo] = useState<VideoMeta | null>(null);
   const [indexStatus, setIndexStatus] = useState<IndexStatus | null>(null);
@@ -137,7 +139,7 @@ export default function App() {
   const follow = useCallback((jobId: string, title: string, onJob: (job: Job) => void) => {
     const unsub = watchJob(jobId, (job) => {
       onJob(job);
-      setToast({ job, title: job.resumed ? `${title} (resumed)` : title });
+      setToast({ job, title: job.resumed ? t('{title} (resumed)', { title }) : title });
     });
     unsubscribers.current.push(unsub);
   }, []);
@@ -175,7 +177,7 @@ export default function App() {
       setOutputUrl(r.recolor.output_url);
       setView('result');
     } else {
-      setNotice(`Nothing matching “${r.parse.object_en}” was found in this video.`);
+      setNotice(t('Nothing matching “{q}” was found in this video.', { q: r.parse.object_en ?? '' }));
     }
   }, []);
 
@@ -377,7 +379,7 @@ export default function App() {
         yolo_half: settings.yoloHalf,
         mode: settings.searchMode,
       });
-      follow(job_id, `Searching “${text}”`, onSearchJob);
+      follow(job_id, t('Searching “{q}”', { q: text }), onSearchJob);
     } catch (e) {
       setNotice((e as Error).message);
     }
@@ -389,7 +391,7 @@ export default function App() {
     setSelection(null);
     try {
       const { job_id } = await api.searchImage(video.video_id, file);
-      follow(job_id, 'Searching by image', onSearchJob);
+      follow(job_id, t('Searching by image'), onSearchJob);
     } catch (e) {
       setNotice((e as Error).message);
     }
@@ -463,7 +465,7 @@ export default function App() {
         frame_step: frameStep,
         yolo_half: settings.yoloHalf,
       });
-      follow(job_id, list.length > 1 ? `Editing ${list.length} objects` : 'Editing video', onRenderJob('recolor'));
+      follow(job_id, list.length > 1 ? t('Editing {n} objects', { n: list.length }) : t('Editing video'), onRenderJob('recolor'));
     } catch (e) {
       setNotice((e as Error).message);
     }
@@ -489,7 +491,7 @@ export default function App() {
         conf: Math.max(0.2, settings.conf),
         yolo_half: settings.yoloHalf,
       });
-      follow(job_id, `Hiding every “${q}”`, onRenderJob('redact'));
+      follow(job_id, t('Hiding every “{q}”', { q }), onRenderJob('redact'));
     } catch (e) {
       setNotice((e as Error).message);
     }
@@ -540,14 +542,14 @@ export default function App() {
               <div className="flex items-center gap-3 rounded-xl border border-rose-400/20 bg-rose-400/[0.06] px-4 py-2.5 text-sm text-rose-300">
                 <AlertTriangle size={16} strokeWidth={1.75} />
                 <span className="flex-1">{notice}</span>
-                <button className="btn-icon h-7 w-7" aria-label="Dismiss" title="Dismiss" onClick={() => setNotice(null)}>
+                <button className="btn-icon h-7 w-7" aria-label={t('Dismiss')} title={t('Dismiss')} onClick={() => setNotice(null)}>
                   <X size={14} />
                 </button>
               </div>
             )}
             {renderJob?.resumed && rendering && (
               <div className="flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-2 text-xs text-amber-200">
-                <RotateCw size={14} /> The server restarted — your render is continuing from where it stopped.
+                <RotateCw size={14} /> {t('The server restarted — your render is continuing from where it stopped.')}
               </div>
             )}
 
@@ -588,7 +590,7 @@ export default function App() {
                         )}
                       >
                         {v === 'original' ? <Film size={14} /> : <Wand2 size={14} />}
-                        {v === 'original' ? 'Original' : 'Edited'}
+                        {v === 'original' ? t('Original') : t('Edited')}
                       </button>
                     ))}
                   </div>
@@ -605,7 +607,7 @@ export default function App() {
                     onSelect={() => undefined}
                     seekRequest={seekRequest}
                     onTimeUpdate={setCurrentTime}
-                    badge="Edited"
+                    badge={t('Edited')}
                     showOverlays={false}
                   />
                 ) : (
@@ -619,7 +621,7 @@ export default function App() {
                     onSelect={select}
                     seekRequest={seekRequest}
                     onTimeUpdate={setCurrentTime}
-                    badge={outputUrl ? 'Original' : undefined}
+                    badge={outputUrl ? t('Original') : undefined}
                   />
                 )}
 

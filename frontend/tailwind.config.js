@@ -23,7 +23,9 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        // Inter has no Arabic glyphs, so Arabic text falls through to IBM Plex Sans Arabic.
+        sans: ['Inter', '"IBM Plex Sans Arabic"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        arabic: ['"IBM Plex Sans Arabic"', 'Inter', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       boxShadow: {

@@ -2,6 +2,7 @@ import { Layers, Wand2, Loader2 } from 'lucide-react';
 import { Target, VideoMeta } from '../types';
 import { cn, formatPercent } from '../lib/format';
 import { TargetRow } from './TargetRow';
+import { useT } from '../i18n';
 
 interface TargetsPanelProps {
   targets: Target[]; thumbnails: Record<number, string>; meta: VideoMeta;
@@ -12,6 +13,7 @@ interface TargetsPanelProps {
 export function TargetsPanel({
   targets, thumbnails, meta, onChange, onRemove, onClear, onApply, applying, applyProgress,
 }: TargetsPanelProps) {
+  const t = useT();
   const n = targets.length;
 
   return (
@@ -19,13 +21,13 @@ export function TargetsPanel({
       <div className="panel-header">
         <div className="flex items-center gap-2">
           <Layers size={14} />
-          <span className="label">Edit batch</span>
+          <span className="label">{t('Edit batch')}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="num text-xs text-slate-400">{n}/8</span>
           {n > 0 && (
             <button type="button" className="btn-ghost h-7 px-2 text-xs" onClick={onClear} disabled={applying}>
-              Clear
+              {t('Clear')}
             </button>
           )}
         </div>
@@ -34,7 +36,7 @@ export function TargetsPanel({
       <div className="p-3 space-y-2">
         {n === 0 ? (
           <p className="text-xs text-slate-500">
-            Add objects with “Add to batch” to edit several at once — e.g. the car blue and the bus green.
+            {t('Add objects with “Add to batch” to edit several at once — e.g. the car blue and the bus green.')}
           </p>
         ) : (
           targets.map((target, idx) => (
@@ -57,12 +59,12 @@ export function TargetsPanel({
             {applying ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                Rendering… {formatPercent(applyProgress ?? 0)}
+                {t('Rendering…')} {formatPercent(applyProgress ?? 0)}
               </>
             ) : (
               <>
                 <Wand2 size={16} />
-                Apply {n} {n === 1 ? 'edit' : 'edits'} in one render
+                {n === 1 ? t('Apply 1 edit in one render') : t('Apply {n} edits in one render', { n })}
               </>
             )}
           </button>
@@ -75,7 +77,7 @@ export function TargetsPanel({
             </div>
           )}
           <p className="text-[11px] text-slate-500">
-            One pass over the video: every object is segmented in the same frames.
+            {t('One pass over the video: every object is segmented in the same frames.')}
           </p>
         </div>
       )}

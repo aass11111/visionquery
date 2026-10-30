@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CornerDownLeft, Languages, Loader2, Search, Sparkles, Wand2 } from 'lucide-react';
+import { useT } from '../i18n';
 import { cn } from '../lib/format';
 import type { CommandParse, Suggestion } from '../types';
 
@@ -48,7 +49,11 @@ function colourOf(label: string): string | null {
 }
 
 /** Candidates: what is in the video first, then colour + object combos for those objects, then examples. */
-function buildOptions(text: string, items: Suggestion[] | null): Option[] {
+function buildOptions(
+  text: string,
+  items: Suggestion[] | null,
+  t: (text: string, vars?: Record<string, string | number>) => string,
+): Option[] {
   const q = text.trim().toLowerCase();
   if (!q) return [];
   const seen = new Set<string>();
@@ -58,11 +63,11 @@ function buildOptions(text: string, items: Suggestion[] | null): Option[] {
     seen.add(label);
     all.push({ label, hint, inVideo });
   };
-  for (const s of items ?? []) push(s.label, `in video · ${s.count}`, true);
+  for (const s of items ?? []) push(s.label, t('in video · {count}', { count: s.count }), true);
   for (const s of items ?? []) {
-    if (s.kind === 'object' && COLOURABLE.has(s.label)) for (const c of COLOURS) push(`${c} ${s.label}`, 'suggested', false);
+    if (s.kind === 'object' && COLOURABLE.has(s.label)) for (const c of COLOURS) push(`${c} ${s.label}`, t('suggested'), false);
   }
-  for (const e of EXAMPLES) push(e, 'example', false);
+  for (const e of EXAMPLES) push(e, t('example'), false);
 
   const words = q.split(/\s+/);
   const score = (o: Option) => {
@@ -115,7 +120,8 @@ export function SearchBar({
   const [active, setActive] = useState(-1);
   const [dismissed, setDismissed] = useState(false);
 
-  const options = useMemo(() => buildOptions(value, suggestions), [value, suggestions]);
+  const t = useT();
+  const options = useMemo(() => buildOptions(value, suggestions, t), [value, suggestions, t]);
   const open = focused && !dismissed && !loading && options.length > 0;
 
   useEffect(() => setActive(-1), [value]);
@@ -178,7 +184,7 @@ export function SearchBar({
           <Search
             size={16}
             strokeWidth={1.75}
-            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"
+            className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-slate-500"
           />
           <input
             ref={inputRef}
@@ -192,23 +198,23 @@ export function SearchBar({
             onBlur={() => setFocused(false)}
             onKeyDown={onKeyDown}
             disabled={disabled || loading}
-            placeholder={'Describe what you\'re looking for — "red car", "person with a backpack"'}
+            placeholder={t('Describe what you\'re looking for — "red car", "person with a backpack"')}
             role="combobox"
             aria-expanded={open}
             aria-controls="vq-search-options"
             aria-autocomplete="list"
             aria-activedescendant={active >= 0 ? `vq-opt-${active}` : undefined}
-            className="h-11 w-full border-0 bg-transparent pl-10 pr-16 text-base text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-0"
+            className="h-11 w-full border-0 bg-transparent ps-10 pe-16 text-base text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-0"
           />
           {!value && (
-            <kbd className="kbd pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 select-none">Ctrl K</kbd>
+            <kbd className="kbd pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 select-none">Ctrl K</kbd>
           )}
 
           {open && (
             <ul
               id="vq-search-options"
               role="listbox"
-              className="absolute left-0 top-[calc(100%+10px)] z-30 w-full min-w-[min(380px,calc(100vw-4rem))] overflow-hidden rounded-2xl border border-white/[0.08] bg-ink-900 p-1 shadow-panel animate-fade-up"
+              className="absolute start-0 top-[calc(100%+10px)] z-30 w-full min-w-[min(380px,calc(100vw-4rem))] overflow-hidden rounded-2xl border border-white/[0.08] bg-ink-900 p-1 shadow-panel animate-fade-up"
             >
               {options.map((o, i) => {
                 const colour = colourOf(o.label);
@@ -244,10 +250,10 @@ export function SearchBar({
                 );
               })}
               <li className="flex gap-3 border-t border-white/[0.06] px-3 pb-1 pt-2 text-[10px] text-slate-500">
-                <span><kbd className="kbd">↑↓</kbd> move</span>
-                <span><kbd className="kbd">Enter</kbd> search</span>
-                <span><kbd className="kbd">Tab</kbd> fill</span>
-                <span><kbd className="kbd">Esc</kbd> close</span>
+                <span><kbd className="kbd">↑↓</kbd> {t('move')}</span>
+                <span><kbd className="kbd">Enter</kbd> {t('search')}</span>
+                <span><kbd className="kbd">Tab</kbd> {t('fill')}</span>
+                <span><kbd className="kbd">Esc</kbd> {t('close')}</span>
               </li>
             </ul>
           )}
@@ -257,7 +263,7 @@ export function SearchBar({
           type="button"
           role="switch"
           aria-checked={useClip}
-          title="Re-score each detection with CLIP for attribute-heavy queries (colour, clothing). Slightly slower."
+          title={t('Re-score each detection with CLIP for attribute-heavy queries (colour, clothing). Slightly slower.')}
           onClick={() => onUseClipChange(!useClip)}
           disabled={disabled || loading}
           className="inline-flex shrink-0 items-center gap-2 select-none rounded-xl px-2.5 py-1.5 text-xs font-medium text-slate-300 transition duration-150 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 disabled:pointer-events-none disabled:opacity-40"
@@ -275,7 +281,7 @@ export function SearchBar({
               )}
             />
           </span>
-          <span>CLIP re-rank</span>
+          <span>{t('CLIP re-rank')}</span>
         </button>
 
         {extra}
@@ -284,17 +290,17 @@ export function SearchBar({
           {loading ? (
             <>
               <Loader2 size={16} strokeWidth={1.75} className="animate-spin" />
-              <span>Working</span>
+              <span>{t('Working')}</span>
             </>
           ) : isCommand ? (
             <>
               <Wand2 size={16} strokeWidth={1.75} />
-              <span>Run</span>
+              <span>{t('Run')}</span>
             </>
           ) : (
             <>
               <Search size={16} strokeWidth={1.75} />
-              <span>Search</span>
+              <span>{t('Search')}</span>
             </>
           )}
         </button>
@@ -303,9 +309,9 @@ export function SearchBar({
       {isCommand && command && (
         <div className="mx-2 mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-accent/25 bg-accent/[0.07] px-3 py-1.5 text-xs text-slate-300 animate-fade-up">
           <Wand2 size={13} className="text-accent-soft" />
-          <span className="font-medium text-white">Command</span>
+          <span className="font-medium text-white">{t('Command')}</span>
           <span>
-            {command.effect === 'recolor' ? 'recolor' : command.effect} “{command.object_en}”
+            {command.effect === 'recolor' ? t('recolor') : command.effect} “{command.object_en}”
           </span>
           {command.color && (
             <span className="inline-flex items-center gap-1.5">
@@ -314,20 +320,20 @@ export function SearchBar({
               {command.color_name}
             </span>
           )}
-          <span className="text-slate-500">· press Enter to search and edit the whole video</span>
+          <span className="text-slate-500">{t('· press Enter to search and edit the whole video')}</span>
         </div>
       )}
       {!isCommand && translatedAs && (
         <div className="mx-2 mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-400">
-          <Languages size={12} className="text-signal" /> searched as <span className="num text-slate-200">{translatedAs}</span>
+          <Languages size={12} className="text-signal" /> {t('searched as')} <span className="num text-slate-200">{translatedAs}</span>
         </div>
       )}
       {!loading && (
         <div className="flex flex-wrap items-center gap-1.5 px-2 pb-1 pt-2">
           {suggestionsLoading ? (
             <>
-              <span className="mr-1 flex items-center gap-1.5 text-[11px] text-slate-500">
-                <Loader2 size={12} className="animate-spin" /> Scanning the video for objects…
+              <span className="me-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                <Loader2 size={12} className="animate-spin" /> {t('Scanning the video for objects…')}
               </span>
               {[56, 72, 48, 64].map((w) => (
                 <span key={w} className="skeleton h-6 rounded-full" style={{ width: w }} />
@@ -335,9 +341,9 @@ export function SearchBar({
             </>
           ) : (
             <>
-              <span className="label mr-1 flex items-center gap-1">
+              <span className="label me-1 flex items-center gap-1">
                 {chips ? <Sparkles size={11} className="text-signal" /> : null}
-                {chips ? 'In this video' : 'Try'}
+                {chips ? t('In this video') : t('Try')}
               </span>
               {(chips ?? EXAMPLES.map((e) => ({ label: e, count: 0, frames: 0, kind: 'object' as const }))).map((s) => {
                 const colour = s.kind === 'color' ? colourOf(s.label) : null;
@@ -347,7 +353,7 @@ export function SearchBar({
                     type="button"
                     disabled={disabled}
                     onClick={() => pick(s.label)}
-                    title={chips ? `Search for “${s.label}”` : undefined}
+                    title={chips ? t('Search for “{label}”', { label: s.label }) : undefined}
                     className="chip transition duration-150 hover:border-accent/40 hover:text-white disabled:pointer-events-none disabled:opacity-40"
                   >
                     {colour && (

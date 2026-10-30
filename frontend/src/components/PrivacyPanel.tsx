@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ShieldCheck, Droplets, Grid3x3, EyeOff, Loader2 } from 'lucide-react';
+import { useT } from '../i18n';
 import { RenderResultBox } from './RenderResultBox';
 import { cn, formatPercent } from '../lib/format';
 
@@ -27,6 +28,7 @@ export function PrivacyPanel({
   objectsHidden,
   onViewResult,
 }: PrivacyPanelProps) {
+  const t = useT();
   const [selectedPreset, setSelectedPreset] = useState('face');
   const [customTarget, setCustomTarget] = useState('');
   const [effect, setEffect] = useState<'blur' | 'pixelate'>('blur');
@@ -37,12 +39,12 @@ export function PrivacyPanel({
     <div className="panel">
       <div className="panel-header">
         <ShieldCheck size={14} />
-        <span className="label">Privacy</span>
+        <span className="label">{t('Privacy')}</span>
       </div>
 
       <div className="p-4 space-y-4">
         <p className="text-xs text-slate-400">
-          Hide every face, plate or person in the whole video — useful before sharing footage.
+          {t('Hide every face, plate or person in the whole video — useful before sharing footage.')}
         </p>
 
         <div className="space-y-2">
@@ -59,7 +61,7 @@ export function PrivacyPanel({
                   }}
                   className={cn('chip', active && 'border-accent/40 bg-accent/20 text-white')}
                 >
-                  {p.label}
+                  {t(p.label)}
                 </button>
               );
             })}
@@ -69,7 +71,7 @@ export function PrivacyPanel({
             dir="auto"
             value={customTarget}
             onChange={(e) => setCustomTarget(e.target.value)}
-            placeholder="or type: وجه، لوحة سيارة…"
+            placeholder={t('or type: وجه، لوحة سيارة…')}
             className="input h-9 text-sm w-full"
           />
         </div>
@@ -84,7 +86,7 @@ export function PrivacyPanel({
             )}
           >
             <Droplets size={13} />
-            Blur
+            {t('Blur')}
           </button>
           <button
             type="button"
@@ -95,7 +97,7 @@ export function PrivacyPanel({
             )}
           >
             <Grid3x3 size={13} />
-            Pixelate
+            {t('Pixelate')}
           </button>
         </div>
 
@@ -109,12 +111,12 @@ export function PrivacyPanel({
             {running ? (
               <>
                 <Loader2 size={16} className="animate-spin" />
-                Hiding… {formatPercent(progress ?? 0)}
+                {t('Hiding…')} {formatPercent(progress ?? 0)}
               </>
             ) : (
               <>
                 <EyeOff size={16} />
-                Hide all in video
+                {t('Hide all in video')}
               </>
             )}
           </button>
@@ -130,14 +132,14 @@ export function PrivacyPanel({
 
         {outputUrl && !running && (
           <RenderResultBox
-            title={`${objectsHidden ?? 0} detections hidden`}
+            title={t('{n} detections hidden', { n: objectsHidden ?? 0 })}
             outputUrl={outputUrl}
             onView={onViewResult}
           />
         )}
 
         <p className="text-[11px] text-slate-500">
-          Runs the detector only (no segmentation) — light on the GPU.
+          {t('Runs the detector only (no segmentation) — light on the GPU.')}
         </p>
       </div>
     </div>

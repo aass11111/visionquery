@@ -1,4 +1,5 @@
 import { Gauge, Rocket, Target } from 'lucide-react';
+import { useT } from '../i18n';
 import { cn } from '../lib/format';
 import type { VideoMeta } from '../types';
 
@@ -12,19 +13,23 @@ interface FrameStepSliderProps {
 const PRESETS = [1, 3, 5, 10, 30];
 const MAX = 30;
 
-function speedLabel(n: number): { text: string; className: string } {
-  if (n <= 2) return { text: 'Thorough', className: 'text-slate-300' };
-  if (n <= 7) return { text: 'Balanced', className: 'text-accent-soft' };
-  if (n <= 15) return { text: 'Fast', className: 'text-signal-soft' };
-  return { text: 'Rapid', className: 'text-signal' };
+function speedLabel(
+  n: number,
+  t: (text: string, vars?: Record<string, string | number>) => string,
+): { text: string; className: string } {
+  if (n <= 2) return { text: t('Thorough'), className: 'text-slate-300' };
+  if (n <= 7) return { text: t('Balanced'), className: 'text-accent-soft' };
+  if (n <= 15) return { text: t('Fast'), className: 'text-signal-soft' };
+  return { text: t('Rapid'), className: 'text-signal' };
 }
 
 export function FrameStepSlider({ value, onChange, meta, disabled }: FrameStepSliderProps) {
+  const t = useT();
   const pct = ((value - 1) / (MAX - 1)) * 100;
-  const speed = speedLabel(value);
+  const speed = speedLabel(value, t);
   const stats = [
-    { label: 'Frames to scan', value: Math.ceil(meta.frame_count / value).toLocaleString() },
-    { label: 'Sample rate', value: `${(meta.fps / value).toFixed(1)} fps` },
+    { label: t('Frames to scan'), value: Math.ceil(meta.frame_count / value).toLocaleString() },
+    { label: t('Sample rate'), value: `${(meta.fps / value).toFixed(1)} fps` },
   ];
 
   return (
@@ -32,10 +37,10 @@ export function FrameStepSlider({ value, onChange, meta, disabled }: FrameStepSl
       <div className="flex items-center justify-between">
         <span className="label flex items-center gap-2">
           <Gauge size={14} strokeWidth={1.75} />
-          Processing density
+          {t('Processing density')}
         </span>
         <span className="num text-sm text-slate-200">
-          every {value} frame{value > 1 ? 's' : ''}
+          {t('Every {n} frames', { n: value })}
         </span>
       </div>
 
@@ -57,7 +62,7 @@ export function FrameStepSlider({ value, onChange, meta, disabled }: FrameStepSl
           ))}
         </div>
 
-        <div>
+        <div dir="ltr">
           <input
             type="range"
             className="range"
@@ -66,17 +71,17 @@ export function FrameStepSlider({ value, onChange, meta, disabled }: FrameStepSl
             step={1}
             value={value}
             onChange={(e) => onChange(Number(e.target.value))}
-            aria-label="Process one frame every N frames"
+            aria-label={t('Process one frame every N frames')}
             style={{
               background: `linear-gradient(90deg, #7c5cff 0%, #22d3ee ${pct}%, #222636 ${pct}%)`,
             }}
           />
           <div className="mt-2 flex justify-between text-[11px] text-slate-500">
             <span className="flex items-center gap-1">
-              <Target size={12} strokeWidth={1.75} /> Accurate
+              <Target size={12} strokeWidth={1.75} /> {t('Accurate')}
             </span>
             <span className="flex items-center gap-1">
-              Fast <Rocket size={12} strokeWidth={1.75} />
+              {t('Fast')} <Rocket size={12} strokeWidth={1.75} />
             </span>
           </div>
         </div>
@@ -89,13 +94,13 @@ export function FrameStepSlider({ value, onChange, meta, disabled }: FrameStepSl
             </div>
           ))}
           <div className="rounded-xl border border-white/[0.06] bg-ink-850 p-2.5">
-            <div className="label text-[10px]">Est. speed</div>
+            <div className="label text-[10px]">{t('Est. speed')}</div>
             <div className={cn('mt-1 text-sm font-medium', speed.className)}>{speed.text}</div>
           </div>
         </div>
 
         <p className="text-xs leading-relaxed text-slate-500">
-          Recoloring still renders every frame — this only sets how often the model re-checks the object.
+          {t('Recoloring still renders every frame — this only sets how often the model re-checks the object.')}
         </p>
       </div>
     </div>

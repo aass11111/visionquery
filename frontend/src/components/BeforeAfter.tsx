@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import clsx from 'clsx';
 import { ChevronsLeftRight } from 'lucide-react';
+import { useT } from '../i18n';
 
 export function BeforeAfter({
   before,
@@ -11,6 +12,7 @@ export function BeforeAfter({
   after: string;
   className?: string;
 }) {
+  const t = useT();
   const [pos, setPos] = useState(50);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -53,6 +55,7 @@ export function BeforeAfter({
   return (
     <div
       ref={containerRef}
+      dir="ltr"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -64,14 +67,14 @@ export function BeforeAfter({
     >
       <img
         src={after}
-        alt="After"
+        alt={t('After')}
         draggable={false}
         className="absolute inset-0 h-full w-full object-contain pointer-events-none"
       />
 
       <img
         src={before}
-        alt="Before"
+        alt={t('Before')}
         draggable={false}
         style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}
         className="absolute inset-0 h-full w-full object-contain pointer-events-none"
@@ -84,7 +87,7 @@ export function BeforeAfter({
         <div
           role="slider"
           tabIndex={0}
-          aria-label="Comparison slider handle"
+          aria-label={t('Comparison slider handle')}
           aria-valuenow={Math.round(pos)}
           aria-valuemin={0}
           aria-valuemax={100}
@@ -96,10 +99,10 @@ export function BeforeAfter({
       </div>
 
       <span className="chip absolute top-3 left-3 backdrop-blur pointer-events-none">
-        Before
+        {t('Before')}
       </span>
       <span className="chip absolute top-3 right-3 backdrop-blur pointer-events-none">
-        After
+        {t('After')}
       </span>
     </div>
   );

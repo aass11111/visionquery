@@ -211,18 +211,32 @@ export default function App() {
       .catch(() => store(VIDEO_KEY, null));
   }, [reattach]);
 
-  // What is in this video, for the search chips and autocomplete.
+  // What is in this video, for the search chips and autocomplete. They are produced with the index, so
+  // while the GPU is busy the server answers 409: keep showing "Scanning…" and ask again (up to ~3 min).
   useEffect(() => {
     if (!videoId || DEMO) return;
     let alive = true;
+    let timer: number | undefined;
+    let tries = 0;
     setSuggestionsLoading(true);
-    api
-      .suggestions(videoId)
-      .then((s) => alive && setSuggestions(s.items))
-      .catch(() => alive && setSuggestions(null))
-      .finally(() => alive && setSuggestionsLoading(false));
+    setSuggestions(null);
+    const tick = () =>
+      api
+        .suggestions(videoId)
+        .then((s) => {
+          if (!alive) return;
+          setSuggestions(s.items);
+          setSuggestionsLoading(false);
+        })
+        .catch(() => {
+          if (!alive) return;
+          if (++tries < 60) timer = window.setTimeout(tick, 3000);
+          else setSuggestionsLoading(false);
+        });
+    tick();
     return () => {
       alive = false;
+      window.clearTimeout(timer);
     };
   }, [videoId]);
 

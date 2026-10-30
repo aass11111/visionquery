@@ -39,12 +39,15 @@ jobs.register("command", pipeline.run_command, CommandRequest)
 
 @app.on_event("startup")
 def resume_jobs() -> None:
+    # Only unfinished jobs; old videos are indexed lazily when opened (see get_index), so a restart never
+    # floods the GPU queue with work nobody asked for.
     jobs.resume_unfinished()
-    # Videos uploaded before the index existed (or whose index was interrupted) get one now.
-    for d in settings.videos_dir.iterdir():
-        if d.is_dir() and (d / "meta.json").exists() and index.status(d.name).status != "ready":
-            if not any(j.kind == "index" and j.video_id == d.name for j in jobs.active()):
-                jobs.submit("index", IndexRequest(video_id=d.name), video_id=d.name, title="Indexing video")
+
+
+def _ensure_index(video_id: str) -> None:
+    if index.status(video_id).status != "ready" and not any(
+            j.kind == "index" and j.video_id == video_id for j in jobs.active()):
+        jobs.submit("index", IndexRequest(video_id=video_id), video_id=video_id, title="Indexing video")
 
 
 def _meta_or_404(video_id: str) -> VideoMeta:
@@ -78,7 +81,7 @@ def upload(file: UploadFile = File(...)) -> VideoMeta:
         raise HTTPException(422, str(e))
     finally:
         Path(tmp.name).unlink(missing_ok=True)
-    jobs.submit("index", IndexRequest(video_id=meta.video_id), video_id=meta.video_id, title="Indexing video")
+    _ensure_index(meta.video_id)
     return meta
 
 
@@ -111,7 +114,9 @@ def get_suggestions(video_id: str) -> Suggestions:
     cache = video.video_dir(video_id) / "suggestions.json"
     if cache.exists():
         return Suggestions.model_validate_json(cache.read_text())
-    _gpu_or_409(timeout=30)
+    # Normally produced by the index job. Compute now only if the GPU is free; otherwise 409 and the UI retries.
+    _ensure_index(video_id)
+    _gpu_or_409(timeout=1)
     try:
         return pipeline.suggestions(video_id)
     finally:
@@ -121,6 +126,7 @@ def get_suggestions(video_id: str) -> Suggestions:
 @app.get("/api/videos/{video_id}/index", response_model=IndexStatus)
 def get_index(video_id: str) -> IndexStatus:
     _meta_or_404(video_id)
+    _ensure_index(video_id)  # older videos get their index (and suggestions) when first opened
     return index.status(video_id)
 
 

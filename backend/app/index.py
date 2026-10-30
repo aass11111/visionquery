@@ -124,4 +124,10 @@ def build(job: Job, req: IndexRequest) -> IndexStatus:
     all_emb = embs[0] if embs else np.zeros((0, 512), np.float16)
     np.savez(npz, frames=np.array(frames, np.int32)[order], emb=all_emb[order])
     meta_p.write_text(json.dumps({"count": len(frames), "step": step, "done": True}))
+
+    # Search suggestions in the same GPU turn, so they never wait behind other jobs.
+    from . import pipeline  # local import: pipeline imports this module
+
+    job.update(progress=0.99, message="Finding objects for suggestions")
+    pipeline.suggestions(req.video_id)
     return status(req.video_id)

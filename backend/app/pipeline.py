@@ -549,8 +549,17 @@ def run_command(job: Job, req: CommandRequest) -> CommandResult:
     result = run_search(job, search_req)
     if not result.hits:
         return CommandResult(parse=parsed, search=result, recolor=None)
-    best = max(result.hits, key=lambda h: h.best_score)
-    det = best.detections[0]
+    # "the white car" means the one you notice, not the most confidently detected speck: weight each detection
+    # by its size (a small parked car far away scores high but is rarely what the user means).
+    meta = video.get_meta(req.video_id)
+    frame_area = float(meta.width * meta.height)
+
+    def prominence(hit_det):
+        _, d = hit_det
+        x1, y1, x2, y2 = d.box
+        return d.score * math.sqrt(max(1.0, (x2 - x1) * (y2 - y1)) / frame_area)
+
+    best, det = max(((h, d) for h in result.hits for d in h.detections), key=prominence)
     target = Target(query=parsed.object_en, frame_index=best.frame_index, box=det.box, effect=parsed.effect,
                     color=parsed.color or "#3b82f6", strength=0.9)
     rec = _render_targets(job, req.video_id, [target], req.frame_step, req.yolo_half, (0.3, 1.0))

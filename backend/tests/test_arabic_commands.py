@@ -11,6 +11,9 @@ from app.commands import parse
     ("چلب اسود", "black dog"),
     ("وجوه", "face"),
     ("تكسي", "taxi"),
+    ("دمية", "doll"),
+    ("دبدوب", "teddy bear"),
+    ("بيك اب اسود", "black pickup truck"),
     ("سيّارة حَمراء", "red car"),  # diacritics
 ])
 def test_translate(ar, en):

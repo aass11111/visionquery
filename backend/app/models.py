@@ -20,9 +20,13 @@ def pick_device() -> str:
 
 DEVICE = pick_device()
 
+# GPU guard: this process may never take more than VRAM_FRACTION of the card, whatever runs.
+if DEVICE == "cuda":
+    torch.cuda.set_per_process_memory_fraction(min(max(settings.vram_fraction, 0.1), 1.0))
+
 
 class ClipScorer:
-    """Scores image crops against a text query with OpenAI CLIP."""
+    """Scores image crops against a text query with OpenAI CLIP, and embeds frames for the index."""
 
     def __init__(self) -> None:
         import clip
@@ -54,12 +58,32 @@ class ClipScorer:
             sims = (f @ self._text(query).T).squeeze(1).float().cpu().numpy()
         return [float(np.clip((s - 0.17) / 0.15, 0.0, 1.0)) for s in sims]
 
+    def embed_images(self, images_rgb: list[np.ndarray]) -> np.ndarray:
+        """L2-normalised image embeddings, float16 (N, 512)."""
+        from PIL import Image
+
+        if not images_rgb:
+            return np.zeros((0, 512), np.float16)
+        batch = torch.stack([self.preprocess(Image.fromarray(c)) for c in images_rgb]).to(DEVICE)
+        with torch.no_grad():
+            f = self.model.encode_image(batch)
+            f = f / f.norm(dim=-1, keepdim=True)
+        return f.float().cpu().numpy().astype(np.float16)
+
+    def embed_text(self, query: str) -> np.ndarray:
+        return self._text(query).float().cpu().numpy()[0]
+
+
+def to_unit(sim: np.ndarray) -> np.ndarray:
+    """Raw CLIP cosine similarities (≈0.15–0.35 for text↔image) mapped to 0..1."""
+    return np.clip((sim - 0.17) / 0.15, 0.0, 1.0)
+
 
 def _load(name: str) -> Any:
     from ultralytics import SAM, YOLOWorld
 
     log.info("loading %s on %s", name, DEVICE)
-    if name in ("yolo", "yolo_track"):
+    if name in ("yolo", "yolo_track", "yolo_live"):
         # Separate instances so ByteTrack callbacks from recolor never leak into search predictions.
         # Move to the GPU before set_classes(): the text embeddings it computes are created on the
         # model's current device, and stay there when predict() later moves the weights.
@@ -104,8 +128,10 @@ class ModelRegistry:
 registry = ModelRegistry()
 
 
-def vram() -> tuple[str | None, float | None, float | None]:
+def vram() -> tuple[str | None, float | None, float | None, float | None]:
+    """GPU name, total GB, used GB (whole card), and this app's cap in GB."""
     if DEVICE != "cuda":
-        return None, None, None
+        return None, None, None, None
     free, total = torch.cuda.mem_get_info()
-    return torch.cuda.get_device_name(0), round(total / 1e9, 1), round((total - free) / 1e9, 1)
+    return (torch.cuda.get_device_name(0), round(total / 1e9, 1), round((total - free) / 1e9, 1),
+            round(total * settings.vram_fraction / 1e9, 1))

@@ -86,6 +86,91 @@ def recolor_frame(frame: np.ndarray, mask: np.ndarray, hex_color: str, strength:
     return np.clip(out + 0.5, 0, 255).astype(np.uint8)
 
 
+def blur_region(frame: np.ndarray, mask: np.ndarray, strength: float = 1.0) -> np.ndarray:
+    """Heavy Gaussian blur inside the (feathered) mask, for privacy redaction."""
+    alpha = feather(mask) * float(np.clip(strength, 0.0, 1.0))
+    if alpha.max() <= 0:
+        return frame
+    h, w = frame.shape[:2]
+    k = int(max(15, round(min(h, w) * 0.06))) | 1
+    small = cv2.resize(frame, (max(1, w // 4), max(1, h // 4)), interpolation=cv2.INTER_AREA)
+    blurred = cv2.resize(cv2.GaussianBlur(small, (k // 4 | 1, k // 4 | 1), 0), (w, h), interpolation=cv2.INTER_LINEAR)
+    a = alpha[..., None]
+    return np.clip(frame * (1 - a) + blurred * a + 0.5, 0, 255).astype(np.uint8)
+
+
+def pixelate_region(frame: np.ndarray, mask: np.ndarray, strength: float = 1.0) -> np.ndarray:
+    """Mosaic inside the mask; block size grows with the masked area so faces stay unreadable."""
+    alpha = feather(mask) * float(np.clip(strength, 0.0, 1.0))
+    if alpha.max() <= 0:
+        return frame
+    h, w = frame.shape[:2]
+    area = float((alpha > 0.5).sum())
+    block = int(max(8, round(np.sqrt(max(area, 1.0)) / 8)))
+    small = cv2.resize(frame, (max(1, w // block), max(1, h // block)), interpolation=cv2.INTER_AREA)
+    mosaic = cv2.resize(small, (w, h), interpolation=cv2.INTER_NEAREST)
+    a = (alpha > 0.15).astype(np.float32)[..., None]  # hard edge: a soft one would leak detail
+    return np.clip(frame * (1 - a) + mosaic * a + 0.5, 0, 255).astype(np.uint8)
+
+
+def apply_effect(frame: np.ndarray, mask: np.ndarray, effect: str, color: str, strength: float) -> np.ndarray:
+    if effect == "blur":
+        return blur_region(frame, mask, strength)
+    if effect == "pixelate":
+        return pixelate_region(frame, mask, strength)
+    return recolor_frame(frame, mask, color, strength)
+
+
+def box_mask(shape: tuple[int, int], box, pad: float = 0.12) -> np.ndarray:
+    """Soft elliptical mask covering a box (redaction without segmentation)."""
+    h, w = shape
+    x1, y1, x2, y2 = map(float, box)
+    px, py = (x2 - x1) * pad, (y2 - y1) * pad
+    m = np.zeros((h, w), np.float32)
+    center = (int((x1 + x2) / 2), int((y1 + y2) / 2))
+    axes = (max(1, int((x2 - x1) / 2 + px)), max(1, int((y2 - y1) / 2 + py)))
+    cv2.ellipse(m, center, axes, 0, 0, 360, 1.0, -1)
+    return m
+
+
+class FlowPropagator:
+    """Carries masks from one frame to the next with dense optical flow (DIS) on the CPU.
+
+    Between SAM 2 key frames the object's mask follows the real pixel motion (wheels turning, people
+    walking) instead of only the tracker box, and a light temporal blend removes flicker. Flow is computed
+    once per frame at half resolution and shared by every target."""
+
+    def __init__(self, scale: float = 0.5) -> None:
+        self.scale = scale
+        self.dis = cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_FAST)
+        self.prev_gray: np.ndarray | None = None
+        self.flow: np.ndarray | None = None  # backward flow: current pixel -> where it was in prev frame
+
+    def step(self, frame: np.ndarray) -> None:
+        gray = cv2.cvtColor(cv2.resize(frame, None, fx=self.scale, fy=self.scale, interpolation=cv2.INTER_AREA),
+                            cv2.COLOR_BGR2GRAY)
+        self.flow = self.dis.calc(gray, self.prev_gray, None) if self.prev_gray is not None else None
+        self.prev_gray = gray
+
+    def reset(self) -> None:
+        self.prev_gray, self.flow = None, None
+
+    def propagate(self, mask: np.ndarray) -> np.ndarray:
+        """Warp last frame's mask into the current frame."""
+        if self.flow is None:
+            return mask
+        h, w = mask.shape
+        flow = cv2.resize(self.flow, (w, h), interpolation=cv2.INTER_LINEAR) / self.scale
+        gx, gy = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))
+        return cv2.remap(mask.astype(np.float32), gx + flow[..., 0], gy + flow[..., 1], cv2.INTER_LINEAR,
+                         borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+
+
+def smooth(prev: np.ndarray | None, cur: np.ndarray, keep: float = 0.25) -> np.ndarray:
+    """Temporal blend of consecutive masks: less edge flicker, still follows motion."""
+    return cur if prev is None or prev.shape != cur.shape else prev * keep + cur * (1 - keep)
+
+
 def warp_mask(mask: np.ndarray, src_box, dst_box) -> np.ndarray:
     """Move/scale a mask so that src_box lands on dst_box (cheap propagation between SAM calls)."""
     sx1, sy1, sx2, sy2 = map(float, src_box)

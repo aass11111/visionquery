@@ -1,31 +1,37 @@
 # VisionQuery API
 
 Base path `/api`. Types are defined in `frontend/src/types.ts`; the backend mirrors them in `backend/app/schemas.py`.
-Long work (search, recolor) runs as a **job** on a single GPU worker; progress streams over a WebSocket.
+Long work runs as a **job** on a single GPU worker; progress streams over a WebSocket. Jobs are saved to disk and
+resumed after the server restarts (power cuts).
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
 | GET | `/api/health` | | `Health` |
-| POST | `/api/videos` | multipart `file` | `VideoMeta` |
+| POST | `/api/videos` | multipart `file` | `VideoMeta` (also queues the CLIP index job) |
 | GET | `/api/videos/{video_id}` | | `VideoMeta` |
 | GET | `/api/videos/{video_id}/stream` | | the video file (HTTP range supported) |
 | GET | `/api/videos/{video_id}/frames/{index}.jpg` | | full frame JPEG (cached) |
-| GET | `/api/videos/{video_id}/suggestions` | | `Suggestions`: objects (and their colours) found in 12 sampled frames; cached |
-| POST | `/api/search` | `SearchRequest` | `{ "job_id": str }` |
-| POST | `/api/preview` | `PreviewRequest` | `image/jpeg`, one recoloured frame |
-| POST | `/api/recolor` | `RecolorRequest` | `{ "job_id": str }` |
+| GET | `/api/videos/{video_id}/suggestions` | | `Suggestions` |
+| GET | `/api/videos/{video_id}/index` | | `IndexStatus` |
+| GET | `/api/translate?q=` | | `{ query_en, translated }` (Arabic → English, no GPU) |
+| GET | `/api/command/parse?text=` | | `CommandParse` (no GPU) |
+| POST | `/api/search` | `SearchRequest` | `{ job_id }` |
+| POST | `/api/search-image` | multipart `video_id`, `file`, `top_k` | `{ job_id }` → `SearchResult` |
+| POST | `/api/preview` | `PreviewRequest` | `image/jpeg` |
+| POST | `/api/recolor` | `RecolorRequest` (1..8 targets) | `{ job_id }` → `RecolorResult` |
+| POST | `/api/redact` | `RedactRequest` | `{ job_id }` → `RedactResult` |
+| POST | `/api/command` | `CommandRequest` | `{ job_id }` → `CommandResult` |
+| GET | `/api/jobs?active=1` | | `Job[]` (queued or running; used to re-attach after a refresh) |
 | GET | `/api/jobs/{job_id}` | | `Job` |
-| WS | `/api/jobs/{job_id}/ws` | | a `Job` JSON message on every change; closes when done/error |
-| GET | `/api/outputs/{job_id}.mp4` | | recoloured H.264 video |
+| WS | `/api/jobs/{job_id}/ws` | | a `Job` JSON message on every change |
+| WS | `/api/live?query=&conf=` | client sends JPEG frames (binary) | `LiveDetections` per frame |
+| GET | `/api/outputs/{job_id}.mp4` | | rendered H.264 video |
 
-## Pipeline
-- **Search**: OpenCV reads one frame every `frame_step` frames → **YOLO-World** (classes = `[query]`) → optional
-  **CLIP** re-rank of each crop against the query → frames with detections become `FrameHit`s.
-- **Preview**: **SAM 2** segments the chosen box on one frame → LAB recolouring → JPEG.
-- **Recolor**: YOLO-World + ByteTrack follow the chosen object through every frame (the track whose box best overlaps
-  the chosen one); **SAM 2** re-segments it every `frame_step` frames and the mask is shifted/scaled with the tracked
-  box in between; every frame is recoloured so the output never flickers; ffmpeg encodes H.264 and keeps the audio.
-
-## Memory
-Models load lazily and only the ones a stage needs stay on the GPU: search = YOLO-World + CLIP, preview = SAM 2,
-recolor = YOLO-World + SAM 2. fp16 on CUDA.
+## GPU guard
+- One GPU job at a time; the process is capped at `VRAM_FRACTION` (default 0.6) of the card.
+- Only the models a stage needs stay loaded; idle models are released.
+- The CLIP index samples one frame every `INDEX_STEP_SEC` (0.5 s) in batches of 16, once per video.
+- Instant search runs YOLO-World only on the ~top frames the index ranks for the query.
+- Live mode is detection only, at most `LIVE_MAX_FPS` (3) frames/s; frames arriving while the GPU is busy are
+  dropped. Blur/boxes are drawn in the browser.
+- Masks are propagated between SAM 2 key frames with dense optical flow on the CPU.

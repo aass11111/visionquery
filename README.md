@@ -17,6 +17,21 @@ The **frame-step slider** sets how often the models look at the video (every N f
 higher is faster. Recoloring still renders every frame; between SAM 2 passes the mask is moved with the tracked box,
 so the output never flickers. Only the models a stage needs are kept on the GPU.
 
+## Features
+
+| | |
+|---|---|
+| **Instant search** | A CLIP index (one frame / 0.5 s) is built after upload; searches rank it and run YOLO-World only on the best frames (0.5 s vs 3.5 s full scan on the test clip). |
+| **Arabic queries** | `سيارة حمراء`, `چلب اسود`, `رجال لابس قميص ازرق` → English for the models; MSA + Iraqi dialect, dictionary-based, no GPU. |
+| **One-sentence commands** | `خلي السيارة الحمراء زرقاء` / `make the red car blue` / `موّه الوجوه` search and edit the whole video. |
+| **Search by image** | Drop a photo; the index finds similar moments and objects. |
+| **Edit batch** | Up to 8 objects in one render, each recolor / blur / pixelate. |
+| **Privacy** | Blur or pixelate every face, plate or person in the video (detector only). |
+| **Live mode** | Webcam detection at ≤ 3 fps; effects drawn in the browser. |
+| **Power-cut safe** | Jobs are saved to disk and continue after a restart; renders are written in segments. |
+| **GPU guard** | Process capped at 60 % of VRAM, one job at a time, live frames dropped when busy, optical flow on the CPU. Peak 2.6 GB on an RTX 3060 for every feature. |
+| **Evaluation** | `scripts/benchmark.py` + `docs/EVALUATION.md` (bilingual chapter) + charts in `docs/eval/`. |
+
 ## Try it on Google Colab (free GPU)
 
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aass11111/visionquery/blob/main/colab/VisionQuery.ipynb)
